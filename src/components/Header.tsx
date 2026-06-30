@@ -1,0 +1,193 @@
+import { useState, useEffect } from 'react';
+import { TrendingUp, Moon, Sun, Sparkles, Plus, LayoutDashboard, Home, LogOut } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLang, useT } from '../contexts/LanguageContext';
+import type { View } from '../types/view';
+
+interface Props {
+  view: View;
+  onViewChange: (v: View) => void;
+  onAddAsset: () => void;
+  hasAssets: boolean;
+  userLabel?: string;
+  onSignOut?: () => void;
+}
+
+function LiveClock() {
+  const [now, setNow] = useState(new Date());
+  const { lang } = useLang();
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const locale = lang === 'he' ? 'he-IL' : 'en-US';
+  const dateStr = now.toLocaleDateString(locale, {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+
+  return (
+    <div className="hidden sm:flex flex-col items-end" dir="ltr">
+      <span className="text-[11px] ltr" style={{ color: 'var(--t3)' }}>{dateStr}</span>
+      <div className="flex items-baseline gap-0.5 ltr">
+        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--t2)' }}>{hh}:{mm}</span>
+        <span className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--t4)' }}>:{ss}</span>
+      </div>
+    </div>
+  );
+}
+
+function NavBtn({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+      style={
+        active
+          ? { background: 'var(--a)', color: '#fff' }
+          : { background: 'transparent', color: 'var(--t2)' }
+      }
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, onSignOut }: Props) {
+  const { theme, toggleTheme } = useTheme();
+  const { lang, setLang } = useLang();
+  const t = useT();
+  const initial = userLabel?.[0]?.toUpperCase() ?? '';
+
+  const ThemeIcon = theme === 'mamish' ? Sparkles : theme === 'light' ? Moon : Sun;
+  const themeIconColor = theme === 'mamish' ? 'var(--at)' : 'var(--t2)';
+
+  return (
+    <header
+      className="sticky top-0 z-40 backdrop-blur-xl border-b"
+      style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
+    >
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-14 flex items-center justify-between gap-4">
+
+        {/* Logo (RTL: right side = logical start) */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
+            style={{ background: 'var(--a)', boxShadow: '0 4px 12px var(--a20)' }}
+          >
+            <TrendingUp size={15} className="text-white" strokeWidth={2.5} />
+          </div>
+          <div className="leading-none hidden sm:block">
+            <p className="text-sm font-black tracking-tight text-gradient" dir="ltr">TIKI</p>
+            <p className="text-[9px]" style={{ color: 'var(--t3)' }}>
+              {lang === 'he' ? 'לוח מחוון השקעות' : 'Investment Dashboard'}
+            </p>
+          </div>
+        </div>
+
+        {/* Center nav */}
+        {hasAssets && (
+          <nav
+            className="hidden sm:flex items-center gap-1 p-1 rounded-xl"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+          >
+            <NavBtn
+              active={view === 'home'}
+              onClick={() => onViewChange('home')}
+              icon={<Home size={13} />}
+              label={t.home}
+            />
+            <NavBtn
+              active={view === 'advanced'}
+              onClick={() => onViewChange('advanced')}
+              icon={<LayoutDashboard size={13} />}
+              label={t.advanced}
+            />
+          </nav>
+        )}
+
+        {/* Right controls (RTL: left side) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Language */}
+          <button
+            onClick={() => setLang(lang === 'he' ? 'en' : 'he')}
+            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{
+              color: 'var(--t3)',
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+            }}
+            title={lang === 'he' ? 'Switch to English' : 'עבור לעברית'}
+          >
+            {lang === 'he' ? 'EN' : 'עב'}
+          </button>
+
+          {/* Theme */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl transition-all hover:opacity-80"
+            style={{
+              color: themeIconColor,
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+            }}
+            title="Toggle theme"
+          >
+            <ThemeIcon size={15} />
+          </button>
+
+          {/* User chip + sign out */}
+          {userLabel && onSignOut && (
+            <div className="flex items-center gap-1.5">
+              {/* Initials avatar — desktop only */}
+              <div
+                className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              >
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                  style={{ background: 'var(--a)' }}
+                >
+                  {initial}
+                </div>
+                <span className="text-[11px] font-medium max-w-[96px] truncate" style={{ color: 'var(--t2)' }}>
+                  {userLabel}
+                </span>
+              </div>
+              <button
+                onClick={onSignOut}
+                className="p-2 rounded-xl transition-all hover:opacity-80"
+                style={{ color: 'var(--t3)', background: 'var(--card)', border: '1px solid var(--border)' }}
+                title={t.signOut}
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Add button (desktop only) */}
+          {hasAssets && (
+            <button
+              onClick={onAddAsset}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+              style={{ background: 'var(--a)', boxShadow: '0 4px 14px var(--a20)' }}
+            >
+              <Plus size={13} />
+              {t.addInvestment}
+            </button>
+          )}
+        </div>
+
+        {/* Clock (RTL: very left = end) */}
+        <LiveClock />
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#g)"/>
+  <!-- Trending-up line -->
+  <polyline
+    points="18,68 36,50 52,58 82,28"
+    fill="none"
+    stroke="rgba(255,255,255,0.35)"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Bold T -->
+  <text
+    x="50" y="54"
+    dominant-baseline="central"
+    text-anchor="middle"
+    fill="white"
+    font-family="system-ui,-apple-system,BlinkMacSystemFont,sans-serif"
+    font-weight="900"
+    font-size="52"
+    letter-spacing="-2"
+  >T</text>
+</svg>
