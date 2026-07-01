@@ -100,13 +100,3 @@ export interface ChartPoint {
 }
 
 export type ChartRange = '1w' | '1mo' | '3mo' | '1y';
-
-export interface PriceDiagnostics {
-  symbol: string;
-  requestedDate: string;
-  matchedDate: string;
-  currency: string;
-  exchange: string | null;
-  close: number;
-  adjClose: number | null;
-}

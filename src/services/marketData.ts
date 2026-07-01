@@ -1,4 +1,4 @@
-import { SearchResult, PriceData, ChartPoint, ChartRange, PriceDiagnostics } from '../types';
+import { SearchResult, PriceData, ChartPoint, ChartRange } from '../types';
 
 // Served by api/market.ts on Vercel (serverless function) and mirrored by a
 // Vite dev-server middleware locally — the browser never calls Yahoo Finance
@@ -99,19 +99,6 @@ export async function getHistoricalPrice(symbol: string, date: Date): Promise<nu
 /** Returns the last cached price for a symbol (or null if no cache exists). */
 export function getCachedPrice(symbol: string): PriceData | null {
   return lsGet<PriceData>(`price:${symbol}`);
-}
-
-/** Debug helper for comparing TIKI's resolved historical price against an external reference. */
-export async function getPriceDiagnostics(symbol: string, date: Date): Promise<PriceDiagnostics> {
-  const dateStr = date.toISOString().split('T')[0];
-  const cacheKey = `diag:${symbol}:${dateStr}`;
-  const cached = lsGet<PriceDiagnostics>(cacheKey);
-  if (cached) return cached;
-
-  const diagnostics = await apiFetch<PriceDiagnostics>({ action: 'diagnose', symbol, date: dateStr });
-
-  lsSet(cacheKey, diagnostics, CACHE_TTL.historicalPrice);
-  return diagnostics;
 }
 
 export async function getChartRange(symbol: string, range: ChartRange): Promise<ChartPoint[]> {

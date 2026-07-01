@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Search, Loader2, AlertCircle, CheckCircle2, ChevronLeft, ChevronDown } from 'lucide-react';
-import { Asset, Owner, FrequencyConfig, FrequencyType, SearchResult, PriceDiagnostics } from '../types';
-import { searchTicker, getCurrentPrice, getHistoricalPrice, getPriceDiagnostics } from '../services/marketData';
+import { X, Search, Loader2, AlertCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { Asset, Owner, FrequencyConfig, FrequencyType, SearchResult } from '../types';
+import { searchTicker, getCurrentPrice, getHistoricalPrice } from '../services/marketData';
 import { fmtPrice } from '../utils/calculations';
 import { useT } from '../contexts/LanguageContext';
 
@@ -269,44 +269,8 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
     }
   }, [s.method, s.amountStr, s.unitsStr, s.historicalPrice, setState]);
 
-  // Price diagnostics — a collapsed-by-default debug panel for comparing
-  // TIKI's resolved historical price against an external reference (BLINK).
-  // Fetches lazily, only once expanded, so it never costs anything for the
-  // normal add-investment flow.
-  const [diagOpen, setDiagOpen] = useState(false);
-  const [diag, setDiag] = useState<PriceDiagnostics | null>(null);
-  const [diagLoading, setDiagLoading] = useState(false);
-  const [diagError, setDiagError] = useState<string | null>(null);
-  const [blinkPriceStr, setBlinkPriceStr] = useState('');
-
-  const symbol = step1.selected?.symbol;
-  const isManual = step1.selected?.type === MANUAL_TYPE;
-  useEffect(() => {
-    if (!diagOpen || !symbol || isManual || !s.purchaseDate) return;
-    let alive = true;
-    setDiagLoading(true);
-    setDiagError(null);
-    getPriceDiagnostics(symbol, new Date(s.purchaseDate))
-      .then((d) => { if (alive) { setDiag(d); setDiagLoading(false); } })
-      .catch(() => { if (alive) { setDiagError(t.couldNotFetchHistory); setDiagLoading(false); } });
-    return () => { alive = false; };
-  }, [diagOpen, symbol, isManual, s.purchaseDate, t]);
-
   const currency = step1.currency || 'USD';
   const canProceed = !!s.purchaseDate && s.calcQty !== null && s.calcQty > 0;
-
-  const blinkPrice = parseFloat(blinkPriceStr);
-  const diffRow = (label: string, ref: number) => {
-    const diff = blinkPrice - ref;
-    const diffPct = ref !== 0 ? (diff / ref) * 100 : 0;
-    return (
-      <Row label={label}>
-        <span className="ltr font-semibold" style={{ color: Math.abs(diffPct) < 0.5 ? 'var(--up)' : 'var(--dn)' }}>
-          {diff >= 0 ? '+' : ''}{diff.toFixed(4)} ({diffPct >= 0 ? '+' : ''}{diffPct.toFixed(2)}%)
-        </span>
-      </Row>
-    );
-  };
 
   return (
     <div className="space-y-4">
@@ -377,70 +341,6 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
             <Row label={t.calculatedInvestedAmount}>
               <span className="ltr font-semibold" style={{ color: 'var(--t1)' }}>{fmtPrice(s.calcQty * s.calcAvgBuy, currency)}</span>
             </Row>
-          )}
-        </div>
-      )}
-
-      {symbol && !isManual && s.purchaseDate && (
-        <div>
-          <button type="button" onClick={() => setDiagOpen((o) => !o)}
-            className="w-full flex items-center justify-between text-[11px] font-medium py-1 transition-opacity hover:opacity-70"
-            style={{ color: 'var(--t3)' }}>
-            <span>{t.priceDiagnostics}</span>
-            <ChevronDown size={13} style={{ transform: diagOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
-          </button>
-
-          {diagOpen && (
-            <div className="rounded-xl p-3 space-y-2 mt-1" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
-              <Row label={t.resolvedSymbol}>
-                <span className="ltr font-semibold ticker" style={{ color: 'var(--t1)' }}>{symbol}</span>
-              </Row>
-              {step1.selected?.exchange && (
-                <Row label={t.exchangeLabel}>
-                  <span style={{ color: 'var(--t1)' }}>{step1.selected.exchange}</span>
-                </Row>
-              )}
-
-              {diagLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin" style={{ color: 'var(--at)' }} />
-                  <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.fetchingPrice}</span>
-                </div>
-              ) : diagError ? (
-                <p className="text-[12px]" style={{ color: 'var(--dn)' }}>{diagError}</p>
-              ) : diag ? (
-                <>
-                  <Row label={t.matchedTradingDate}>
-                    <span className="ltr font-semibold" style={{ color: diag.matchedDate !== diag.requestedDate ? 'var(--dn)' : 'var(--t1)' }}>
-                      {diag.matchedDate}
-                    </span>
-                  </Row>
-                  <Row label={t.rawClose}>
-                    <span className="ltr font-semibold" style={{ color: 'var(--t1)' }}>{fmtPrice(diag.close, diag.currency)}</span>
-                  </Row>
-                  {diag.adjClose !== null && (
-                    <Row label={t.adjustedClose}>
-                      <span className="ltr font-semibold" style={{ color: Math.abs(diag.adjClose - diag.close) > 0.001 ? 'var(--at)' : 'var(--t1)' }}>
-                        {fmtPrice(diag.adjClose, diag.currency)}
-                      </span>
-                    </Row>
-                  )}
-
-                  <div className="pt-2 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
-                    <label className="text-[11px] block mb-1.5" style={{ color: 'var(--t3)' }}>{t.blinkPriceLabel}</label>
-                    <input type="number" min={0} step="any" value={blinkPriceStr}
-                      onChange={(e) => setBlinkPriceStr(e.target.value)} onKeyDown={blockInvalidNumberKey}
-                      placeholder="0.00" className={INPUT_CLS} dir="ltr" />
-                    {blinkPriceStr && blinkPrice > 0 && (
-                      <div className="mt-2 space-y-1.5">
-                        {diffRow(t.diffVsClose, diag.close)}
-                        {diag.adjClose !== null && diffRow(t.diffVsAdjClose, diag.adjClose)}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : null}
-            </div>
           )}
         </div>
       )}
