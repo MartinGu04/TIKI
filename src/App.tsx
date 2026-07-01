@@ -119,14 +119,23 @@ function TikiApp({ userId }: { userId: string | null }) {
   // ─── CRUD handlers ──────────────────────────────────────────────────────────
 
   const handleSaveAsset = useCallback(async (asset: Asset) => {
-    // Update local state first — cloud is best-effort
     if (modalMode === 'add') {
       // Backfill any recurring deposits already due if the purchase date is in the past.
       const processed = await applyRecurringCatchUp(asset);
-      setAssetsState([...assets, processed]);
-      if (userId) await supabaseStorageService.saveInvestment(processed, userId).catch((e) => {
-        if (e instanceof CloudUnavailableError) setCloudError(true);
-      });
+      if (userId) {
+        try {
+          // Supabase assigns the real UUID id — local state must use the
+          // returned asset (not `processed`) so later edits/deletes target
+          // a valid id instead of the locally-generated one.
+          const saved = await supabaseStorageService.saveInvestment(processed, userId);
+          setAssetsState([...assets, saved]);
+        } catch (e) {
+          if (e instanceof CloudUnavailableError) setCloudError(true);
+          setAssetsState([...assets, processed]);
+        }
+      } else {
+        setAssetsState([...assets, processed]);
+      }
     } else {
       setAssetsState(assets.map((a) => (a.id === asset.id ? asset : a)));
       if (userId) await supabaseStorageService.updateInvestment(asset, userId).catch((e) => {

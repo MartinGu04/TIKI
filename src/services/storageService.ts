@@ -180,11 +180,19 @@ export const supabaseStorageService = {
     }
   },
 
-  async saveInvestment(asset: Asset, userId: string): Promise<void> {
-    if (!supabase) return;
+  // Returns the saved asset with its real Supabase-generated UUID `id` —
+  // the client-side id from genId() (see AssetModal.tsx) is not a valid
+  // UUID, so it must never be sent to the `id` column. Callers should use
+  // the returned Asset (not the one passed in) for local state so later
+  // updates/deletes reference a real id.
+  async saveInvestment(asset: Asset, userId: string): Promise<Asset> {
+    if (!supabase) return asset;
     try {
-      const { error } = await supabase.from('investments').insert(assetToRow(asset, userId));
+      const { id: _omit, ...row } = assetToRow(asset, userId);
+      void _omit;
+      const { data, error } = await supabase.from('investments').insert(row).select().single();
       if (error) handleError(error, 'saveInvestment');
+      return rowToAsset(data);
     } catch (e) {
       if (e instanceof CloudUnavailableError) throw e;
       handleError(e, 'saveInvestment');
