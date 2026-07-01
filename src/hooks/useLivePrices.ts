@@ -1,0 +1,45 @@
+import { useEffect, useState } from 'react';
+import { Asset, PriceData } from '../types';
+import { getCurrentPrice } from '../services/marketData';
+
+export interface LivePrices {
+  /** Live quote per symbol (5-min cached by marketData.ts) — undefined if the fetch failed or hasn't resolved yet. */
+  quotes: Record<string, PriceData>;
+  /** Symbols whose live fetch failed this pass — displays should fall back to the asset's stored currentPrice. */
+  staleSymbols: Set<string>;
+}
+
+/**
+ * Fetches a live quote per unique symbol across `assets` (deduped, so owning
+ * the same ticker under multiple owners costs one request). Never touches
+ * storage — this is a render-time overlay only, used to keep displayed
+ * value/ROI/change figures live without treating the fetched price as the
+ * new source of truth for the asset record itself.
+ */
+export function useLivePrices(assets: Asset[]): LivePrices {
+  const symbols = [...new Set(assets.map((a) => a.symbol))].sort();
+  const symbolsKey = symbols.join(',');
+
+  const [state, setState] = useState<LivePrices>({ quotes: {}, staleSymbols: new Set() });
+
+  useEffect(() => {
+    if (symbols.length === 0) { setState({ quotes: {}, staleSymbols: new Set() }); return; }
+    let alive = true;
+
+    Promise.allSettled(symbols.map((s) => getCurrentPrice(s))).then((results) => {
+      if (!alive) return;
+      const quotes: Record<string, PriceData> = {};
+      const staleSymbols = new Set<string>();
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') quotes[symbols[i]] = r.value;
+        else staleSymbols.add(symbols[i]);
+      });
+      setState({ quotes, staleSymbols });
+    });
+
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolsKey]);
+
+  return state;
+}

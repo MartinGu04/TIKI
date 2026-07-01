@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Search, Loader2, AlertCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
-import { Asset, Owner, FrequencyConfig, FrequencyType, SearchResult } from '../types';
-import { searchTicker, getCurrentPrice, getHistoricalPrice } from '../services/marketData';
+import { X, Search, Loader2, AlertCircle, CheckCircle2, ChevronLeft, ChevronDown } from 'lucide-react';
+import { Asset, Owner, FrequencyConfig, FrequencyType, SearchResult, PriceDiagnostics } from '../types';
+import { searchTicker, getCurrentPrice, getHistoricalPrice, getPriceDiagnostics } from '../services/marketData';
 import { fmtPrice } from '../utils/calculations';
 import { useT } from '../contexts/LanguageContext';
 
@@ -12,6 +12,12 @@ const PRESET_COLORS = [
 ];
 
 const INPUT_CLS = 'w-full text-sm rounded-xl px-3 py-2.5 focus:outline-none transition-all text-right input-base';
+
+// Native type="number" inputs still let the keyboard through "e"/"+"/"-",
+// which aren't valid for a plain positive amount — block just those keys.
+function blockInvalidNumberKey(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') e.preventDefault();
+}
 
 interface Props {
   mode: 'add' | 'edit';
@@ -104,7 +110,7 @@ function Step1({ state: s, setState, onNext, t }: {
           <div>
             <label className="text-[12px] font-medium block mb-1.5 text-right" style={{ color: 'var(--t3)' }}>{t.currentPrice}</label>
             <input type="number" min={0} step="any" value={manualPriceStr}
-              onChange={(e) => setManualPriceStr(e.target.value)}
+              onChange={(e) => setManualPriceStr(e.target.value)} onKeyDown={blockInvalidNumberKey}
               placeholder="0.00" className={INPUT_CLS} dir="ltr" />
           </div>
           <div>
@@ -263,8 +269,44 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
     }
   }, [s.method, s.amountStr, s.unitsStr, s.historicalPrice, setState]);
 
+  // Price diagnostics — a collapsed-by-default debug panel for comparing
+  // TIKI's resolved historical price against an external reference (BLINK).
+  // Fetches lazily, only once expanded, so it never costs anything for the
+  // normal add-investment flow.
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diag, setDiag] = useState<PriceDiagnostics | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError, setDiagError] = useState<string | null>(null);
+  const [blinkPriceStr, setBlinkPriceStr] = useState('');
+
+  const symbol = step1.selected?.symbol;
+  const isManual = step1.selected?.type === MANUAL_TYPE;
+  useEffect(() => {
+    if (!diagOpen || !symbol || isManual || !s.purchaseDate) return;
+    let alive = true;
+    setDiagLoading(true);
+    setDiagError(null);
+    getPriceDiagnostics(symbol, new Date(s.purchaseDate))
+      .then((d) => { if (alive) { setDiag(d); setDiagLoading(false); } })
+      .catch(() => { if (alive) { setDiagError(t.couldNotFetchHistory); setDiagLoading(false); } });
+    return () => { alive = false; };
+  }, [diagOpen, symbol, isManual, s.purchaseDate, t]);
+
   const currency = step1.currency || 'USD';
   const canProceed = !!s.purchaseDate && s.calcQty !== null && s.calcQty > 0;
+
+  const blinkPrice = parseFloat(blinkPriceStr);
+  const diffRow = (label: string, ref: number) => {
+    const diff = blinkPrice - ref;
+    const diffPct = ref !== 0 ? (diff / ref) * 100 : 0;
+    return (
+      <Row label={label}>
+        <span className="ltr font-semibold" style={{ color: Math.abs(diffPct) < 0.5 ? 'var(--up)' : 'var(--dn)' }}>
+          {diff >= 0 ? '+' : ''}{diff.toFixed(4)} ({diffPct >= 0 ? '+' : ''}{diffPct.toFixed(2)}%)
+        </span>
+      </Row>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -296,7 +338,7 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
           <label className="text-[12px] font-medium block mb-1.5 text-right" style={{ color: 'var(--t3)' }}>{t.investedAmount}</label>
           <div className="relative">
             <input type="number" min={0} step="any" value={s.amountStr}
-              onChange={(e) => setState((p) => ({ ...p, amountStr: e.target.value }))}
+              onChange={(e) => setState((p) => ({ ...p, amountStr: e.target.value }))} onKeyDown={blockInvalidNumberKey}
               placeholder="0.00" className={INPUT_CLS + ' pl-8'} dir="ltr" />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--t3)' }}>
               {currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'ILS' ? '₪' : '$'}
@@ -307,7 +349,7 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
         <div>
           <label className="text-[12px] font-medium block mb-1.5 text-right" style={{ color: 'var(--t3)' }}>{t.unitsPurchased}</label>
           <input type="number" min={0} step="any" value={s.unitsStr}
-            onChange={(e) => setState((p) => ({ ...p, unitsStr: e.target.value }))}
+            onChange={(e) => setState((p) => ({ ...p, unitsStr: e.target.value }))} onKeyDown={blockInvalidNumberKey}
             placeholder="0" className={INPUT_CLS} dir="ltr" />
         </div>
       )}
@@ -328,6 +370,77 @@ function Step2({ step1, state: s, setState, onNext, onBack, t }: {
             <Row label={t.calculatedAvgBuy}>
               <span className="ltr font-semibold" style={{ color: 'var(--up)' }}>{fmtPrice(s.calcAvgBuy, currency)}</span>
             </Row>
+          )}
+          {/* Units mode derives the invested amount from qty x price — surface it
+              back so the user sees it computed, never has to type it themselves. */}
+          {s.method === 'units' && s.calcQty !== null && s.calcAvgBuy !== null && (
+            <Row label={t.calculatedInvestedAmount}>
+              <span className="ltr font-semibold" style={{ color: 'var(--t1)' }}>{fmtPrice(s.calcQty * s.calcAvgBuy, currency)}</span>
+            </Row>
+          )}
+        </div>
+      )}
+
+      {symbol && !isManual && s.purchaseDate && (
+        <div>
+          <button type="button" onClick={() => setDiagOpen((o) => !o)}
+            className="w-full flex items-center justify-between text-[11px] font-medium py-1 transition-opacity hover:opacity-70"
+            style={{ color: 'var(--t3)' }}>
+            <span>{t.priceDiagnostics}</span>
+            <ChevronDown size={13} style={{ transform: diagOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
+          </button>
+
+          {diagOpen && (
+            <div className="rounded-xl p-3 space-y-2 mt-1" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
+              <Row label={t.resolvedSymbol}>
+                <span className="ltr font-semibold ticker" style={{ color: 'var(--t1)' }}>{symbol}</span>
+              </Row>
+              {step1.selected?.exchange && (
+                <Row label={t.exchangeLabel}>
+                  <span style={{ color: 'var(--t1)' }}>{step1.selected.exchange}</span>
+                </Row>
+              )}
+
+              {diagLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" style={{ color: 'var(--at)' }} />
+                  <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.fetchingPrice}</span>
+                </div>
+              ) : diagError ? (
+                <p className="text-[12px]" style={{ color: 'var(--dn)' }}>{diagError}</p>
+              ) : diag ? (
+                <>
+                  <Row label={t.matchedTradingDate}>
+                    <span className="ltr font-semibold" style={{ color: diag.matchedDate !== diag.requestedDate ? 'var(--dn)' : 'var(--t1)' }}>
+                      {diag.matchedDate}
+                    </span>
+                  </Row>
+                  <Row label={t.rawClose}>
+                    <span className="ltr font-semibold" style={{ color: 'var(--t1)' }}>{fmtPrice(diag.close, diag.currency)}</span>
+                  </Row>
+                  {diag.adjClose !== null && (
+                    <Row label={t.adjustedClose}>
+                      <span className="ltr font-semibold" style={{ color: Math.abs(diag.adjClose - diag.close) > 0.001 ? 'var(--at)' : 'var(--t1)' }}>
+                        {fmtPrice(diag.adjClose, diag.currency)}
+                      </span>
+                    </Row>
+                  )}
+
+                  <div className="pt-2 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                    <label className="text-[11px] block mb-1.5" style={{ color: 'var(--t3)' }}>{t.blinkPriceLabel}</label>
+                    <input type="number" min={0} step="any" value={blinkPriceStr}
+                      onChange={(e) => setBlinkPriceStr(e.target.value)} onKeyDown={blockInvalidNumberKey}
+                      placeholder="0.00" className={INPUT_CLS} dir="ltr" />
+                    {blinkPriceStr && blinkPrice > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        {diffRow(t.diffVsClose, diag.close)}
+                        {diag.adjClose !== null && diffRow(t.diffVsAdjClose, diag.adjClose)}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
           )}
         </div>
       )}
@@ -397,6 +510,7 @@ function Step3({ state: s, setState, step2Method, step2AmountStr, onBack, onSubm
         {s.frequency.type === 'every-x-months' && (
           <input type="number" min={2} max={24} value={s.everyXStr} placeholder={t.numMonths}
             onChange={(e) => { const v = e.target.value; setState((p) => ({ ...p, everyXStr: v, frequency: { ...p.frequency, everyXMonths: parseInt(v) || 2 } })); }}
+            onKeyDown={blockInvalidNumberKey}
             className={INPUT_CLS + ' mt-2'} dir="ltr" />
         )}
         {s.frequency.type === 'monthly' && (
@@ -404,6 +518,7 @@ function Step3({ state: s, setState, step2Method, step2AmountStr, onBack, onSubm
             <label className="text-[11px] block mb-1" style={{ color: 'var(--t3)' }}>{t.dayOfMonth}</label>
             <input type="number" min={1} max={28} value={s.frequency.dayOfMonth ?? 1}
               onChange={(e) => setState((p) => ({ ...p, frequency: { ...p.frequency, dayOfMonth: parseInt(e.target.value) || 1 } }))}
+              onKeyDown={blockInvalidNumberKey}
               className={INPUT_CLS} dir="ltr" />
           </div>
         )}
@@ -415,7 +530,7 @@ function Step3({ state: s, setState, step2Method, step2AmountStr, onBack, onSubm
           <label className="text-[12px] font-medium block mb-1.5 text-right" style={{ color: 'var(--t3)' }}>{t.contributionAmount}</label>
           <div className="relative">
             <input type="number" min={0} step="any" value={s.contributionStr}
-              onChange={(e) => setState((p) => ({ ...p, contributionStr: e.target.value }))}
+              onChange={(e) => setState((p) => ({ ...p, contributionStr: e.target.value }))} onKeyDown={blockInvalidNumberKey}
               placeholder="0" className={INPUT_CLS + ' pl-7'} dir="ltr" />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--t3)' }}>$</span>
           </div>
@@ -486,15 +601,15 @@ function EditForm({ asset, onSave, onClose, t }: {
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--t3)' }}>{t.avgBuy}</label>
-          <input type="number" min={0} step="any" value={form.avgBuyPrice} onChange={set('avgBuyPrice')} className={INPUT_CLS} dir="ltr" />
+          <input type="number" min={0} step="any" value={form.avgBuyPrice} onChange={set('avgBuyPrice')} onKeyDown={blockInvalidNumberKey} className={INPUT_CLS} dir="ltr" />
         </div>
         <div>
           <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--t3)' }}>{t.qty}</label>
-          <input type="number" min={0} step="any" value={form.quantity} onChange={set('quantity')} className={INPUT_CLS} dir="ltr" />
+          <input type="number" min={0} step="any" value={form.quantity} onChange={set('quantity')} onKeyDown={blockInvalidNumberKey} className={INPUT_CLS} dir="ltr" />
         </div>
         <div>
           <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--t3)' }}>{t.currentPrice}</label>
-          <input type="number" min={0} step="any" value={form.currentPrice} onChange={set('currentPrice')} className={INPUT_CLS} dir="ltr" />
+          <input type="number" min={0} step="any" value={form.currentPrice} onChange={set('currentPrice')} onKeyDown={blockInvalidNumberKey} className={INPUT_CLS} dir="ltr" />
         </div>
       </div>
       <div>
@@ -523,7 +638,7 @@ function EditForm({ asset, onSave, onClose, t }: {
       {form.frequency.type !== 'one-time' && (
         <div>
           <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--t3)' }}>{t.contributionAmount}</label>
-          <input type="number" min={0} step="any" value={form.contributionStr} onChange={set('contributionStr')} className={INPUT_CLS} dir="ltr" />
+          <input type="number" min={0} step="any" value={form.contributionStr} onChange={set('contributionStr')} onKeyDown={blockInvalidNumberKey} className={INPUT_CLS} dir="ltr" />
         </div>
       )}
       <div>
@@ -583,7 +698,7 @@ export function AssetModal({ mode, asset, onSave, onClose }: Props) {
     const isRecurring = s3.frequency.type !== 'one-time';
     const newAsset: Asset = {
       id: genId(), ticker: s1.selected.ticker, symbol: s1.selected.symbol,
-      name: s1.selected.name, owner: s3.owner,
+      name: s1.selected.name, owner: s3.owner, exchange: s1.selected.exchange,
       avgBuyPrice: s2.calcAvgBuy ?? s1.currentPrice ?? 0,
       quantity: s2.calcQty ?? 0,
       currentPrice: s1.currentPrice ?? s2.historicalPrice ?? 0,

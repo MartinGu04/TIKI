@@ -5,7 +5,9 @@
 // which resolves extensionless specifiers automatically). TypeScript's
 // NodeNext-style convention maps this .js specifier back to yahoo.ts for
 // type-checking while leaving it as .js in the emitted JS.
-import { searchYahoo, getQuote, getHistoricalClose } from './lib/yahoo.js';
+import { searchYahoo, getQuote, getHistoricalClose, getChartRange, getHistoricalDiagnostics, type ChartRange } from './lib/yahoo.js';
+
+const VALID_CHART_RANGES: ChartRange[] = ['1w', '1mo', '3mo', '1y'];
 
 // Gives our own error handling a safety margin below the platform's function
 // timeout, so a slow/blocked Yahoo response results in a clean JSON 502 from
@@ -59,6 +61,27 @@ export default async function handler(req: Req, res: Res) {
       if (!symbol || !date) { res.status(400).json({ error: 'symbol and date are required' }); return; }
       const price = await getHistoricalClose(symbol, date);
       res.status(200).json({ price });
+      return;
+    }
+
+    if (action === 'chart') {
+      const symbol = param(req, 'symbol');
+      const range = param(req, 'range') as ChartRange;
+      if (!symbol || !VALID_CHART_RANGES.includes(range)) {
+        res.status(400).json({ error: 'symbol and a valid range (1w, 1mo, 3mo, 1y) are required' });
+        return;
+      }
+      const points = await getChartRange(symbol, range);
+      res.status(200).json({ points });
+      return;
+    }
+
+    if (action === 'diagnose') {
+      const symbol = param(req, 'symbol');
+      const date = param(req, 'date');
+      if (!symbol || !date) { res.status(400).json({ error: 'symbol and date are required' }); return; }
+      const diagnostics = await getHistoricalDiagnostics(symbol, date);
+      res.status(200).json(diagnostics);
       return;
     }
 

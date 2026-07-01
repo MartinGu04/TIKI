@@ -14,7 +14,7 @@ export function BottomNav({ view, onViewChange, onAddAsset }: Props) {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 sm:hidden backdrop-blur-xl border-t"
-      style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
+      style={{ background: 'var(--hdr)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around h-16 px-4">
         <NavItem

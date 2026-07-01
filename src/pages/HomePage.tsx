@@ -1,15 +1,19 @@
+import { useState } from 'react';
 import { TrendingUp, TrendingDown, CalendarClock, Wallet } from 'lucide-react';
 import { Asset, PortfolioStats } from '../types';
 import { useT, useLang } from '../contexts/LanguageContext';
-import { fmt, fmtPct, getNextDepositDate, fmtDate } from '../utils/calculations';
+import { fmt, fmtPct, getNextDepositDate, fmtDate, DailyChange } from '../utils/calculations';
 import { greetingWord } from '../utils/greeting';
 import { Translations } from '../i18n';
+import { TickerDetailModal } from '../components/TickerDetailModal';
 
 interface Props {
   assets: Asset[];
   stats: PortfolioStats;
   onAddAsset: () => void;
   userLabel?: string;
+  dailyChange: DailyChange | null;
+  pricesStale: boolean;
 }
 
 function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translations): string {
@@ -20,20 +24,22 @@ function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translat
   return t.personalityBuilding;
 }
 
-export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
+export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pricesStale }: Props) {
   const t = useT();
   const { lang } = useLang();
+  const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
 
   const isProfit = stats.profitLoss >= 0;
 
-  const nextDeposit = assets
+  const upcomingDeposits = assets
     .filter((a) => a.frequency.type !== 'one-time' && a.monthlyContribution > 0)
     .map((a) => {
       const d = getNextDepositDate(a.frequency);
       return d ? { asset: a, date: d } : null;
     })
     .filter((x): x is { asset: Asset; date: Date } => x !== null)
-    .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null;
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const nextDeposit = upcomingDeposits[0] ?? null;
 
   const sentence = personalitySentence(stats, assets, t);
 
@@ -87,22 +93,39 @@ export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
             </div>
           )}
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {!stats.isMixedCurrency && (
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ltr"
-                style={{
-                  background: isProfit ? 'var(--up10)' : 'var(--dn10)',
-                  color: isProfit ? 'var(--up)' : 'var(--dn)',
-                }}
-              >
-                {isProfit ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-                {isProfit ? '+' : ''}{fmt(stats.profitLoss, stats.currencies[0])}
-                &nbsp;({fmtPct(stats.roi)})
+          {!stats.isMixedCurrency && (
+            <div className="space-y-2.5 pt-3 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
+              {dailyChange && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[13px] font-semibold" style={{ color: 'var(--t3)' }}>{t.dailyChangeLabel}</span>
+                  <span
+                    className="flex items-center gap-1 text-sm font-bold ltr"
+                    style={{ color: dailyChange.amount >= 0 ? 'var(--up)' : 'var(--dn)' }}
+                  >
+                    {dailyChange.amount >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {dailyChange.amount >= 0 ? '+' : ''}{fmt(dailyChange.amount, stats.currencies[0])}
+                    &nbsp;({fmtPct(dailyChange.pct)})
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-semibold" style={{ color: 'var(--t3)' }} title={t.sincePurchaseHint}>
+                  {t.sincePurchase}
+                </span>
+                <span
+                  className="flex items-center gap-1 text-sm font-bold ltr"
+                  style={{ color: isProfit ? 'var(--up)' : 'var(--dn)' }}
+                >
+                  {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  {isProfit ? '+' : ''}{fmt(stats.profitLoss, stats.currencies[0])}
+                  &nbsp;({fmtPct(stats.roi)})
+                </span>
               </div>
-            )}
-            <span className="text-xs" style={{ color: 'var(--t3)' }}>{t.sinceStart}</span>
-          </div>
+            </div>
+          )}
+          {pricesStale && (
+            <p className="text-xs mt-2" style={{ color: 'var(--t3)' }}>{t.pricesStaleNote}</p>
+          )}
         </div>
       </div>
 
@@ -131,6 +154,11 @@ export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
               <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
                 {fmtDate(nextDeposit.date)}
               </p>
+              {upcomingDeposits.length > 1 && (
+                <p className="text-[11px] mt-1 font-medium" style={{ color: 'var(--at)' }}>
+                  {t.recurringActiveCount(upcomingDeposits.length)}
+                </p>
+              )}
             </>
           ) : (
             <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noRecurring}</p>
@@ -141,12 +169,13 @@ export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
       {/* Progress section — simplified position sentiment */}
       {assets.length > 0 && (
         <div className="animate-slide-up" style={{ animationDelay: '120ms' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[12px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t4)' }}>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[12px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t3)' }}>
               {t.positions(assets.length)}
             </p>
             <p className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.ourInvestments}</p>
           </div>
+          <p className="text-xs mb-2" style={{ color: 'var(--t3)' }}>{t.sincePurchaseCaption}</p>
           <div className="space-y-2">
             {assets.map((a, i) => {
               const roi = a.avgBuyPrice > 0
@@ -159,8 +188,9 @@ export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
               return (
                 <div
                   key={a.id}
-                  className="card card-hover rounded-2xl px-4 py-3 animate-slide-up"
+                  className="card card-hover rounded-2xl px-4 py-3 animate-slide-up cursor-pointer"
                   style={{ animationDelay: `${(i + 4) * 40}ms` }}
+                  onClick={() => setDetailAsset(a)}
                 >
                   {/* Top row: ticker + ROI */}
                   <div className="flex items-center justify-between mb-2">
@@ -187,6 +217,10 @@ export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
             })}
           </div>
         </div>
+      )}
+
+      {detailAsset && (
+        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} />
       )}
     </div>
   );

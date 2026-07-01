@@ -51,6 +51,9 @@ interface YFChartMeta {
   currency: string;
   symbol: string;
   regularMarketPrice: number;
+  chartPreviousClose?: number;
+  previousClose?: number;
+  exchangeName?: string;
   shortName?: string;
   longName?: string;
 }
@@ -60,10 +63,22 @@ interface YFChartResponse {
     result: Array<{
       meta: YFChartMeta;
       timestamp?: number[];
-      indicators: { quote: Array<{ close: (number | null)[] }> };
+      indicators: {
+        quote: Array<{ close: (number | null)[] }>;
+        adjclose?: Array<{ adjclose: (number | null)[] }>;
+      };
     }> | null;
     error: null | { message: string };
   };
+}
+
+// Yahoo quotes LSE-listed lines in pence ("GBp"/"GBX"), a distinct currency
+// code from pound sterling ("GBP") — normalize to GBP here so every caller
+// (avgBuyPrice, currentPrice, display formatting) works with one consistent
+// currency code and magnitude.
+function normalizeCurrency(price: number, currency: string): { price: number; currency: string } {
+  if (currency === 'GBp' || currency === 'GBX') return { price: price / 100, currency: 'GBP' };
+  return { price, currency };
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -99,6 +114,8 @@ export interface QuoteDTO {
   price: number;
   currency: string;
   name: string;
+  previousClose: number | null;
+  exchange: string | null;
 }
 
 export async function getQuote(symbol: string): Promise<QuoteDTO> {
@@ -109,12 +126,55 @@ export async function getQuote(symbol: string): Promise<QuoteDTO> {
   if (!result) throw new Error('No data for ' + symbol);
 
   const meta = result.meta;
+  const { price, currency } = normalizeCurrency(meta.regularMarketPrice, meta.currency ?? 'USD');
+  const rawPrevClose = meta.previousClose ?? meta.chartPreviousClose ?? null;
+  const previousClose = rawPrevClose === null ? null : normalizeCurrency(rawPrevClose, meta.currency ?? 'USD').price;
+
   return {
     symbol,
-    price: meta.regularMarketPrice,
-    currency: meta.currency ?? 'USD',
+    price,
+    currency,
     name: meta.longName ?? meta.shortName ?? symbol,
+    previousClose,
+    exchange: meta.exchangeName ?? null,
   };
+}
+
+export interface ChartPoint {
+  date: string; // yyyy-mm-dd
+  close: number;
+}
+
+const CHART_RANGES = ['1w', '1mo', '3mo', '1y'] as const;
+export type ChartRange = (typeof CHART_RANGES)[number];
+
+// Yahoo's `range` param has no literal "1 week" value — "5d" (5 trading
+// days) is the closest live equivalent and what our "1W" label maps to.
+const YAHOO_RANGE: Record<ChartRange, string> = { '1w': '5d', '1mo': '1mo', '3mo': '3mo', '1y': '1y' };
+
+/** Daily close series for `symbol` over the given range, for a simple price chart. */
+export async function getChartRange(symbol: string, range: ChartRange): Promise<ChartPoint[]> {
+  if (!CHART_RANGES.includes(range)) throw new Error('Invalid range: ' + range);
+  const url = `${YF_BASE}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${YAHOO_RANGE[range]}`;
+  const data = await fetchJson<YFChartResponse>(url);
+
+  const result = data.chart.result?.[0];
+  if (!result) throw new Error('No chart data for ' + symbol);
+
+  const timestamps = result.timestamp ?? [];
+  const closes = result.indicators.quote[0]?.close ?? [];
+  const currency = result.meta.currency ?? 'USD';
+
+  const points: ChartPoint[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const close = closes[i];
+    if (close == null) continue;
+    points.push({
+      date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
+      close: normalizeCurrency(close, currency).price,
+    });
+  }
+  return points;
 }
 
 /** Closing price closest to `dateStr` (yyyy-mm-dd), searching a 5-day window to handle weekends/holidays. */
@@ -146,5 +206,67 @@ export async function getHistoricalClose(symbol: string, dateStr: string): Promi
   }
 
   if (bestPrice === null) throw new Error('Could not find price for that date');
-  return bestPrice;
+  return normalizeCurrency(bestPrice, result.meta.currency).price;
+}
+
+export interface PriceDiagnosticsDTO {
+  symbol: string;
+  requestedDate: string;
+  matchedDate: string;
+  currency: string;
+  exchange: string | null;
+  close: number;
+  adjClose: number | null;
+}
+
+/**
+ * Debug helper for comparing TIKI's resolved historical price against an
+ * external reference (e.g. BLINK) for a specific ticker/date — surfaces the
+ * raw ingredients (resolved symbol, matched trading day, currency, close vs.
+ * adjusted close) without changing what getHistoricalClose actually returns
+ * or how purchase prices get calculated.
+ */
+export async function getHistoricalDiagnostics(symbol: string, dateStr: string): Promise<PriceDiagnosticsDTO> {
+  const target = new Date(dateStr);
+  const start = Math.floor(target.getTime() / 1000) - 4 * 86400;
+  const end = Math.floor(target.getTime() / 1000) + 4 * 86400;
+  const url = `${YF_BASE}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${start}&period2=${end}`;
+  const data = await fetchJson<YFChartResponse>(url);
+
+  const result = data.chart.result?.[0];
+  if (!result) throw new Error('No historical data for ' + symbol);
+
+  const timestamps = result.timestamp ?? [];
+  const closes = result.indicators.quote[0]?.close ?? [];
+  const adjCloses = result.indicators.adjclose?.[0]?.adjclose ?? [];
+  const rawCurrency = result.meta.currency ?? 'USD';
+
+  let bestIndex = -1;
+  let bestDelta = Infinity;
+  const targetSec = target.getTime() / 1000;
+
+  for (let i = 0; i < timestamps.length; i++) {
+    if (closes[i] == null) continue;
+    const delta = Math.abs(timestamps[i] - targetSec);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex === -1) throw new Error('Could not find price for that date');
+
+  const { price: close, currency } = normalizeCurrency(closes[bestIndex]!, rawCurrency);
+  const rawAdjClose = adjCloses[bestIndex];
+  const adjClose = rawAdjClose == null ? null : normalizeCurrency(rawAdjClose, rawCurrency).price;
+
+  return {
+    symbol,
+    requestedDate: dateStr,
+    matchedDate: new Date(timestamps[bestIndex] * 1000).toISOString().split('T')[0],
+    currency,
+    exchange: result.meta.exchangeName ?? null,
+    close,
+    adjClose,
+  };
 }

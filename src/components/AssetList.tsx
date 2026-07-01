@@ -3,6 +3,7 @@ import { Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Asset } from '../types';
 import { fmt, fmtPrice, fmtPct, frequencyLabel } from '../utils/calculations';
 import { useT, useLang } from '../contexts/LanguageContext';
+import { TickerDetailModal } from './TickerDetailModal';
 
 interface Props {
   assets: Asset[];
@@ -19,6 +20,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
 
   const ownerLabel: Record<string, string> = {
     me: t.me, partner: t.partner, shared: t.shared,
@@ -101,7 +103,10 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <td style={{ paddingRight: '1.5rem', paddingLeft: '1rem', paddingTop: '1rem', paddingBottom: '1rem' }}>
-                    <div className="flex items-center gap-3">
+                    <div
+                      className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => setDetailAsset(asset)}
+                    >
                       <div className="w-1 h-9 rounded-full shrink-0" style={{ backgroundColor: asset.color }} />
                       <div>
                         <p className="text-sm font-bold ticker" style={{ color: 'var(--t1)' }}>{asset.ticker}</p>
@@ -224,6 +229,10 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
           </div>
         )}
       </div>
+
+      {detailAsset && (
+        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} />
+      )}
     </div>
   );
 }

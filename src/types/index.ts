@@ -34,6 +34,7 @@ export interface Asset {
   frequency: FrequencyConfig;
   color: string;
   lastPriceUpdate?: number; // unix ms timestamp
+  exchange?: string;  // display exchange, e.g. "LSE" — captured at search time
 }
 
 export interface CurrencyGroup {
@@ -78,4 +79,23 @@ export interface PriceData {
   price: number;
   currency: string;
   name: string;
+  previousClose: number | null;
+  exchange: string | null;
+}
+
+export interface ChartPoint {
+  date: string; // yyyy-mm-dd
+  close: number;
+}
+
+export type ChartRange = '1w' | '1mo' | '3mo' | '1y';
+
+export interface PriceDiagnostics {
+  symbol: string;
+  requestedDate: string;
+  matchedDate: string;
+  currency: string;
+  exchange: string | null;
+  close: number;
+  adjClose: number | null;
 }

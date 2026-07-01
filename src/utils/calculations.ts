@@ -1,4 +1,44 @@
-import { Asset, FrequencyConfig, PortfolioStats, ProjectionPoint } from '../types';
+import { Asset, FrequencyConfig, PortfolioStats, ProjectionPoint, PriceData } from '../types';
+
+/**
+ * Returns a new array with each asset's currentPrice replaced by its live
+ * quote where one was fetched successfully, falling back to the asset's
+ * stored (possibly stale) currentPrice otherwise. Never mutates the input
+ * and never gets written back to storage — this is a render-time overlay so
+ * portfolio value/ROI/change figures reflect live data without treating the
+ * fetch as the new source of truth for the record itself.
+ */
+export function overlayLivePrices(assets: Asset[], quotes: Record<string, PriceData>): Asset[] {
+  return assets.map((a) => {
+    const q = quotes[a.symbol];
+    return q ? { ...a, currentPrice: q.price } : a;
+  });
+}
+
+export interface DailyChange {
+  amount: number;
+  pct: number;
+}
+
+/**
+ * Portfolio-wide day-over-day change, using each live quote's previousClose.
+ * Assets without a resolved previousClose (fetch failed, or a manual entry
+ * with no market data) are excluded from both sides of the ratio rather than
+ * counted as zero change, so they don't silently dilute the result. Returns
+ * null if no asset has enough data to contribute.
+ */
+export function calculateDailyChange(assets: Asset[], quotes: Record<string, PriceData>): DailyChange | null {
+  let deltaSum = 0;
+  let baseSum = 0;
+  for (const a of assets) {
+    const prevClose = quotes[a.symbol]?.previousClose;
+    if (prevClose == null) continue;
+    deltaSum += a.quantity * (a.currentPrice - prevClose);
+    baseSum += a.quantity * prevClose;
+  }
+  if (baseSum <= 0) return null;
+  return { amount: deltaSum, pct: (deltaSum / baseSum) * 100 };
+}
 
 export function calculatePortfolioStats(assets: Asset[]): PortfolioStats {
   const totalInvested = assets.reduce((s, a) => s + a.avgBuyPrice * a.quantity, 0);

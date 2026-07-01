@@ -75,19 +75,45 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
   return (
     <header
       className="sticky top-0 z-40 backdrop-blur-xl border-b"
-      style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
+      style={{
+        background: 'var(--hdr)', borderColor: 'var(--border)',
+        // env() alone is 0 in a normal mobile browser tab (only non-zero in
+        // standalone/PWA mode on notched iOS) — max() guarantees breathing
+        // room at the top either way, not just when installed to the home screen.
+        paddingTop: 'max(1.25rem, env(safe-area-inset-top))',
+      }}
     >
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-14 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 
-        {/* Start column (RTL: right side) — brand + primary nav + primary action */}
+        {/* Start column (RTL: right side) — brand + mobile avatar + primary nav + primary action */}
         <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
           <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0"
-            style={{ background: 'var(--a)', boxShadow: '0 4px 12px var(--a20)' }}
+            className="flex items-center gap-2.5 min-w-0 shrink-0 cursor-pointer"
+            onClick={() => onViewChange('home')}
           >
-            <TrendingUp size={15} className="text-white" strokeWidth={2.5} />
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0"
+              style={{ background: 'var(--a)', boxShadow: '0 4px 12px var(--a20)' }}
+            >
+              <TrendingUp size={15} className="text-white" strokeWidth={2.5} />
+            </div>
+            <p className="text-sm font-black tracking-tight text-gradient hidden sm:block shrink-0" dir="ltr">TIKI</p>
           </div>
-          <p className="text-sm font-black tracking-tight text-gradient hidden sm:block shrink-0" dir="ltr">TIKI</p>
+
+          {/* Avatar sits with the logo on mobile (desktop keeps it in the end column with sign-out) */}
+          {userLabel && (
+            <div
+              className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 overflow-hidden"
+              style={{ background: 'var(--a)' }}
+              title={userEmail ?? userLabel}
+            >
+              {userAvatarUrl ? (
+                <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              ) : (
+                initial
+              )}
+            </div>
+          )}
 
           {hasAssets && (
             <nav
@@ -124,11 +150,15 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
         {/* Center column — date + live clock, always at the true midpoint of the header */}
         <LiveClock />
 
-        {/* End column (RTL: left side) — theme, language, then identity chip + sign out */}
+        {/* End column (RTL: left side). Desktop order (DOM/default): theme,
+            language, identity chip + sign out. Mobile visually reorders to
+            sign-out, language, theme (nearest-to-farthest from center) via
+            the order utilities below — the avatar chip is desktop-only here
+            since it moves next to the logo on mobile. */}
         <div className="flex items-center gap-2 justify-self-end">
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl transition-all hover:opacity-80"
+            className="p-2 rounded-xl transition-all hover:opacity-80 order-3 sm:order-none"
             style={{
               color: themeIconColor,
               background: 'var(--card)',
@@ -141,7 +171,7 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
 
           <button
             onClick={() => setLang(lang === 'he' ? 'en' : 'he')}
-            className="text-[12px] font-bold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80"
+            className="text-[12px] font-bold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 order-2 sm:order-none"
             style={{
               color: 'var(--t3)',
               background: 'var(--card)',
@@ -154,9 +184,9 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
 
           {/* User chip + sign out — kept together, sign out unmistakably red/danger */}
           {userLabel && onSignOut && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 order-1 sm:order-none">
               <div
-                className="flex items-center gap-1.5 ps-1 pe-1 sm:pe-2.5 py-1 rounded-full"
+                className="hidden sm:flex items-center gap-1.5 ps-1 pe-1 sm:pe-2.5 py-1 rounded-full"
                 style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
                 title={userEmail ?? userLabel}
               >

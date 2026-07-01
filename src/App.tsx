@@ -11,9 +11,10 @@ import { MigrationPrompt } from './components/MigrationPrompt';
 import { HomePage } from './pages/HomePage';
 import { AdvancedPage } from './pages/AdvancedPage';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useLivePrices } from './hooks/useLivePrices';
 import { Asset } from './types';
 import { DEMO_ASSETS } from './data/seed';
-import { calculatePortfolioStats } from './utils/calculations';
+import { calculatePortfolioStats, overlayLivePrices, calculateDailyChange } from './utils/calculations';
 import { applyRecurringCatchUp, applyRecurringCatchUpAll } from './utils/recurringEngine';
 import { supabaseStorageService, CloudUnavailableError } from './services/storageService';
 
@@ -113,7 +114,16 @@ function TikiApp({ userId }: { userId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const stats = calculatePortfolioStats(assets);
+  // Live-price overlay: purely a render-time view over `assets` — never
+  // written back to storage. Supabase/localStorage stay the source of truth
+  // for owned data (symbol, quantity, avgBuyPrice, frequency); this just
+  // keeps displayed value/ROI/change figures live, falling back to each
+  // asset's stored currentPrice when a quote can't be fetched.
+  const { quotes: livePrices, staleSymbols } = useLivePrices(assets);
+  const displayAssets = overlayLivePrices(assets, livePrices);
+  const stats = calculatePortfolioStats(displayAssets);
+  const dailyChange = calculateDailyChange(displayAssets, livePrices);
+  const pricesStale = assets.some((a) => staleSymbols.has(a.symbol));
   const hasAssets = assets.length > 0;
 
   // ─── CRUD handlers ──────────────────────────────────────────────────────────
@@ -230,9 +240,12 @@ function TikiApp({ userId }: { userId: string | null }) {
         {!hasAssets ? (
           <EmptyState onAddAsset={() => setModalMode('add')} onLoadDemo={loadDemo} userLabel={userLabel} />
         ) : view === 'home' ? (
-          <HomePage assets={assets} stats={stats} onAddAsset={() => setModalMode('add')} userLabel={userLabel} />
+          <HomePage
+            assets={displayAssets} stats={stats} onAddAsset={() => setModalMode('add')} userLabel={userLabel}
+            dailyChange={dailyChange} pricesStale={pricesStale}
+          />
         ) : (
-          <AdvancedPage assets={assets} stats={stats} onEdit={openEditModal} onDelete={handleDeleteAsset} />
+          <AdvancedPage assets={displayAssets} stats={stats} onEdit={openEditModal} onDelete={handleDeleteAsset} />
         )}
       </main>
 
