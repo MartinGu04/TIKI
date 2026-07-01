@@ -60,7 +60,7 @@ export function LoginScreen({ onContinueLocal }: Props) {
           ] as [string, string][]).map(([label, sub]) => (
             <div key={label} className="card rounded-xl p-3">
               <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--t1)' }}>{label}</p>
-              <p className="text-[10px]" style={{ color: 'var(--t3)' }}>{sub}</p>
+              <p className="text-[11px]" style={{ color: 'var(--t3)' }}>{sub}</p>
             </div>
           ))}
         </div>
@@ -85,7 +85,7 @@ export function LoginScreen({ onContinueLocal }: Props) {
           </button>
         </div>
 
-        <p className="text-[11px] mt-6" style={{ color: 'var(--t4)' }}>
+        <p className="text-[12px] mt-6" style={{ color: 'var(--t4)' }}>
           {t.dataPrivacy}
         </p>
 

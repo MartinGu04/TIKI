@@ -40,7 +40,7 @@ export function AllocationDonut({ assets }: Props) {
     <div className="rounded-2xl card p-6">
       <div className="mb-4">
         <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.allocationTitle}</h2>
-        <p className="text-[11px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.byCurrentValue}</p>
+        <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.byCurrentValue}</p>
       </div>
 
       <div className="relative">
@@ -62,7 +62,7 @@ export function AllocationDonut({ assets }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.total}</p>
+          <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.total}</p>
           <p className="text-base font-bold mt-0.5 ltr" style={{ color: 'var(--t1)' }}>{fmt(total)}</p>
         </div>
       </div>
@@ -79,10 +79,10 @@ export function AllocationDonut({ assets }: Props) {
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
               <span className="text-xs font-medium ticker" style={{ color: 'var(--t1)' }}>{item.name}</span>
-              <span className="text-[10px] hidden sm:block truncate" style={{ color: 'var(--t3)' }}>{item.fullName}</span>
+              <span className="text-[11px] hidden sm:block truncate" style={{ color: 'var(--t3)' }}>{item.fullName}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0 mr-2">
-              <span className="text-[11px] tabular-nums ltr" style={{ color: 'var(--t3)' }}>
+              <span className="text-[12px] tabular-nums ltr" style={{ color: 'var(--t3)' }}>
                 {total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0'}%
               </span>
               <span className="text-xs tabular-nums w-14 text-left ltr" style={{ color: 'var(--t2)' }}>

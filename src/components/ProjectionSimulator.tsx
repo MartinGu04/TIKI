@@ -26,24 +26,24 @@ export function ProjectionSimulator({ stats }: Props) {
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</label>
-            <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{annualReturn}%</span>
+            <label className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</label>
+            <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{annualReturn}%</span>
           </div>
           <input type="range" min={1} max={20} step={0.5} value={annualReturn}
             onChange={(e) => setAnnualReturn(Number(e.target.value))} />
-          <div className="flex justify-between text-[10px] mt-1 ltr" style={{ color: 'var(--t4)' }}>
+          <div className="flex justify-between text-[11px] mt-1 ltr" style={{ color: 'var(--t4)' }}>
             <span>1%</span><span>20%</span>
           </div>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.timeHorizon}</label>
-            <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{years} {t.year}</span>
+            <label className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.timeHorizon}</label>
+            <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{years} {t.year}</span>
           </div>
           <input type="range" min={1} max={40} value={years}
             onChange={(e) => setYears(Number(e.target.value))} />
-          <div className="flex justify-between text-[10px] mt-1 ltr" style={{ color: 'var(--t4)' }}>
+          <div className="flex justify-between text-[11px] mt-1 ltr" style={{ color: 'var(--t4)' }}>
             <span>1</span><span>40</span>
           </div>
         </div>
@@ -52,13 +52,14 @@ export function ProjectionSimulator({ stats }: Props) {
           className="rounded-xl p-4 mt-1"
           style={{ background: 'var(--a10)', border: '1px solid var(--a20)' }}
         >
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--at)' }}>
+          <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: 'var(--at)' }}>
             {t.valueInYears(years)}
           </p>
           <p className="text-2xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>{fmt(projected)}</p>
           <div className="flex items-center gap-3 mt-2">
             <span className="text-xs font-medium ltr" style={{ color: 'var(--up)' }}>+{fmt(gain)}</span>
-            <span className="text-[11px] ltr" style={{ color: 'var(--t3)' }}>{t.xTimesYourMoney(multiplier)}</span>
+            {/* Mixed Hebrew+number string — must NOT be forced ltr, or the Hebrew words render reversed */}
+            <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.xTimesYourMoney(multiplier)}</span>
           </div>
         </div>
       </div>

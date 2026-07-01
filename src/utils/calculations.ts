@@ -52,63 +52,92 @@ export function generateProjection(
   return data;
 }
 
-/** Get the next deposit date for an asset based on its frequency config. */
-export function getNextDepositDate(freq: FrequencyConfig): Date | null {
-  const now = new Date();
-  const { type, dayOfMonth = 1, weekday = 1, everyXMonths = 3, startDate } = freq;
-
-  if (type === 'one-time') return null;
-
-  const startFrom = startDate ? new Date(startDate) : now;
+/** Next occurrence of `freq` strictly after `after`. Caller guarantees `freq.type !== 'one-time'`. */
+function nextOccurrence(freq: FrequencyConfig, after: Date): Date {
+  const { type, dayOfMonth = 1, weekday = 1, everyXMonths = 3 } = freq;
 
   if (type === 'monthly') {
-    let d = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
-    if (d <= now) d = new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth);
+    let d = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
+    if (d <= after) d = new Date(after.getFullYear(), after.getMonth() + 1, dayOfMonth);
     return d;
   }
 
   if (type === 'quarterly' || type === 'every-x-months') {
     const months = type === 'quarterly' ? 3 : everyXMonths;
-    let candidate = new Date(startFrom);
-    candidate.setDate(dayOfMonth);
-    while (candidate <= now) {
+    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
+    while (candidate <= after) {
       candidate = new Date(candidate.getFullYear(), candidate.getMonth() + months, dayOfMonth);
     }
     return candidate;
   }
 
   if (type === 'semi-annually') {
-    let candidate = new Date(startFrom);
-    candidate.setDate(dayOfMonth);
-    while (candidate <= now) {
+    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
+    while (candidate <= after) {
       candidate = new Date(candidate.getFullYear(), candidate.getMonth() + 6, dayOfMonth);
     }
     return candidate;
   }
 
   if (type === 'yearly') {
-    let candidate = new Date(startFrom);
-    candidate.setDate(dayOfMonth);
-    while (candidate <= now) {
+    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
+    while (candidate <= after) {
       candidate = new Date(candidate.getFullYear() + 1, candidate.getMonth(), dayOfMonth);
     }
     return candidate;
   }
 
   if (type === 'weekly') {
-    let d = new Date(now);
+    const d = new Date(after);
     d.setDate(d.getDate() + 1);
     while (d.getDay() !== weekday) d.setDate(d.getDate() + 1);
     return d;
   }
 
-  if (type === 'daily') {
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    return d;
-  }
+  // daily
+  const d = new Date(after);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
 
-  return null;
+/**
+ * Get the next deposit date for an asset based on its frequency config.
+ * Chains from lastProcessedDate/startDate when set, so periodic types
+ * (quarterly/semi-annually/yearly) stay phase-locked to when the recurring
+ * investment actually started rather than re-phasing off "today". Falls
+ * back to computing from today for legacy assets with no anchor.
+ */
+export function getNextDepositDate(freq: FrequencyConfig): Date | null {
+  if (freq.type === 'one-time') return null;
+  const now = new Date();
+  const anchorStr = freq.lastProcessedDate ?? freq.startDate;
+  if (!anchorStr) return nextOccurrence(freq, now);
+
+  let next = nextOccurrence(freq, new Date(anchorStr));
+  while (next <= now) next = nextOccurrence(freq, next);
+  return next;
+}
+
+/**
+ * All scheduled deposit dates strictly after `anchor` and up to (and
+ * including) `now`, in chronological order. Capped at `max` so a very old
+ * anchor date can't trigger an unbounded number of historical price fetches
+ * in one pass — callers process the remainder on the next run.
+ */
+export function getElapsedDeposits(
+  freq: FrequencyConfig,
+  anchor: Date,
+  now: Date = new Date(),
+  max = 24,
+): Date[] {
+  if (freq.type === 'one-time') return [];
+  const dates: Date[] = [];
+  let d = nextOccurrence(freq, anchor);
+  while (d <= now && dates.length < max) {
+    dates.push(d);
+    d = nextOccurrence(freq, d);
+  }
+  return dates;
 }
 
 export function frequencyLabel(freq: FrequencyConfig): string {

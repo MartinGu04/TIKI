@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useT } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -14,6 +14,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { Asset } from './types';
 import { DEMO_ASSETS } from './data/seed';
 import { calculatePortfolioStats } from './utils/calculations';
+import { applyRecurringCatchUp, applyRecurringCatchUpAll } from './utils/recurringEngine';
 import { supabaseStorageService, CloudUnavailableError } from './services/storageService';
 
 import type { View } from './types/view';
@@ -55,20 +56,40 @@ function TikiApp({ userId }: { userId: string | null }) {
       ?? user.email?.split('@')[0]
       ?? user.email
     : undefined;
+  const userAvatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+
+  // Guards the local-only catch-up effect below so it only ever runs once
+  // per mount (it's skipped entirely when a cloud session is active, since
+  // the cloud-load effect handles catch-up for that path instead).
+  const localCatchUpRanRef = useRef(false);
 
   // When a user logs in: ensure profile row exists, then load cloud assets.
+  // Recurring deposits due since the app was last opened are caught up here
+  // too, before the data is shown or (if there's nothing in the cloud yet)
+  // offered for migration.
   useEffect(() => {
     if (!userId || !user) return;
 
     setCloudLoading(true);
     supabaseStorageService.ensureProfile(user)
       .then(() => supabaseStorageService.loadInvestments(userId))
-      .then((cloudAssets) => {
-        setCloudLoading(false);
+      .then(async (cloudAssets) => {
         if (cloudAssets.length > 0) {
-          setAssetsState(cloudAssets);
+          const [updated, changed] = await applyRecurringCatchUpAll(cloudAssets);
+          setAssetsState(updated);
+          setCloudLoading(false);
+          if (changed) {
+            updated.forEach((a, i) => {
+              if (a !== cloudAssets[i]) supabaseStorageService.updateInvestment(a, userId).catch(() => {});
+            });
+          }
         } else if (assets.length > 0) {
+          const [updated, changed] = await applyRecurringCatchUpAll(assets);
+          if (changed) setAssetsState(updated);
+          setCloudLoading(false);
           setShowMigration(true);
+        } else {
+          setCloudLoading(false);
         }
       })
       .catch((e) => {
@@ -79,6 +100,19 @@ function TikiApp({ userId }: { userId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Local-only mode (no cloud session): catch up recurring deposits once on
+  // mount using whatever's in localStorage.
+  useEffect(() => {
+    if (userId || localCatchUpRanRef.current) return;
+    localCatchUpRanRef.current = true;
+    if (assets.length === 0) return;
+    applyRecurringCatchUpAll(assets).then(([updated, changed]) => {
+      if (changed) setAssetsState(updated);
+    });
+    // Runs once per mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const stats = calculatePortfolioStats(assets);
   const hasAssets = assets.length > 0;
 
@@ -87,8 +121,10 @@ function TikiApp({ userId }: { userId: string | null }) {
   const handleSaveAsset = useCallback(async (asset: Asset) => {
     // Update local state first — cloud is best-effort
     if (modalMode === 'add') {
-      setAssetsState([...assets, asset]);
-      if (userId) await supabaseStorageService.saveInvestment(asset, userId).catch((e) => {
+      // Backfill any recurring deposits already due if the purchase date is in the past.
+      const processed = await applyRecurringCatchUp(asset);
+      setAssetsState([...assets, processed]);
+      if (userId) await supabaseStorageService.saveInvestment(processed, userId).catch((e) => {
         if (e instanceof CloudUnavailableError) setCloudError(true);
       });
     } else {
@@ -135,6 +171,11 @@ function TikiApp({ userId }: { userId: string | null }) {
 
   const handleKeepLocal = () => setShowMigration(false);
 
+  const handleClearLocal = () => {
+    setAssetsState([]);
+    setShowMigration(false);
+  };
+
   if (cloudLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
@@ -151,6 +192,8 @@ function TikiApp({ userId }: { userId: string | null }) {
         onAddAsset={() => setModalMode('add')}
         hasAssets={hasAssets}
         userLabel={userLabel}
+        userEmail={user?.email}
+        userAvatarUrl={userAvatarUrl}
         onSignOut={user ? signOut : undefined}
       />
 
@@ -176,9 +219,9 @@ function TikiApp({ userId }: { userId: string | null }) {
 
       <main>
         {!hasAssets ? (
-          <EmptyState onAddAsset={() => setModalMode('add')} onLoadDemo={loadDemo} />
+          <EmptyState onAddAsset={() => setModalMode('add')} onLoadDemo={loadDemo} userLabel={userLabel} />
         ) : view === 'home' ? (
-          <HomePage assets={assets} stats={stats} onAddAsset={() => setModalMode('add')} />
+          <HomePage assets={assets} stats={stats} onAddAsset={() => setModalMode('add')} userLabel={userLabel} />
         ) : (
           <AdvancedPage assets={assets} stats={stats} onEdit={openEditModal} onDelete={handleDeleteAsset} />
         )}
@@ -197,6 +240,7 @@ function TikiApp({ userId }: { userId: string | null }) {
           assetCount={assets.length}
           onSaveToCloud={handleMigrateToCloud}
           onKeepLocal={handleKeepLocal}
+          onClearLocal={handleClearLocal}
           onDismiss={handleKeepLocal}
         />
       )}

@@ -32,7 +32,7 @@ export function ProjectionChart({ stats }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.portfolioProjection}</h2>
-          <p className="text-[11px] mt-0.5" style={{ color: 'var(--t3)' }}>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
             {t.estimatedWith}{' '}
             <span className="font-medium ltr" style={{ color: 'var(--at)' }}>{fmt(stats.monthlyContribution)}</span>
             {t.perMonth}
@@ -43,16 +43,16 @@ export function ProjectionChart({ stats }: Props) {
         <div className="flex items-center gap-4 flex-wrap" dir="ltr">
           <div className="flex flex-col gap-1 min-w-[110px]">
             <div className="flex items-center justify-between">
-              <span className="text-[10px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</span>
-              <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{annualReturn}%</span>
+              <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</span>
+              <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{annualReturn}%</span>
             </div>
             <input type="range" min={1} max={20} step={0.5} value={annualReturn}
               onChange={(e) => setAnnualReturn(Number(e.target.value))} />
           </div>
           <div className="flex flex-col gap-1 min-w-[110px]">
             <div className="flex items-center justify-between">
-              <span className="text-[10px]" style={{ color: 'var(--t3)' }}>{t.timeHorizon}</span>
-              <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{years} {t.year}</span>
+              <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.timeHorizon}</span>
+              <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{years} {t.year}</span>
             </div>
             <input type="range" min={1} max={40} value={years}
               onChange={(e) => setYears(Number(e.target.value))} />
@@ -63,15 +63,15 @@ export function ProjectionChart({ stats }: Props) {
       {/* Summary stats */}
       <div className="flex gap-6 mb-5" dir="ltr">
         <div>
-          <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.inYears(years)}</p>
+          <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.inYears(years)}</p>
           <p className="text-xl font-bold mt-0.5 tabular-nums" style={{ color: 'var(--t1)' }}>{fmt(finalValue)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.totalGain}</p>
+          <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.totalGain}</p>
           <p className="text-xl font-bold mt-0.5 tabular-nums" style={{ color: 'var(--up)' }}>+{fmt(totalGain)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.multiplier}</p>
+          <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.multiplier}</p>
           <p className="text-xl font-bold mt-0.5 tabular-nums" style={{ color: 'var(--at)' }}>{multiplier.toFixed(1)}×</p>
         </div>
       </div>
@@ -110,11 +110,11 @@ export function ProjectionChart({ stats }: Props) {
       <div className="flex items-center gap-5 mt-3">
         <div className="flex items-center gap-2">
           <div className="w-6 h-0.5 rounded" style={{ background: 'var(--a)' }} />
-          <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.withContributions}</span>
+          <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.withContributions}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-5 border-t border-dashed" style={{ borderColor: 'var(--t4)' }} />
-          <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.growthOnly}</span>
+          <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.growthOnly}</span>
         </div>
       </div>
     </div>

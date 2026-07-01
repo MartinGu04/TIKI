@@ -52,7 +52,7 @@ export function ContributionSplit({ assets }: Props) {
                   <span className="text-xs" style={{ color: 'var(--t2)' }}>{item.label}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] tabular-nums ltr" style={{ color: 'var(--t3)' }}>
+                  <span className="text-[12px] tabular-nums ltr" style={{ color: 'var(--t3)' }}>
                     {total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%
                   </span>
                   <span className="text-xs font-semibold tabular-nums ltr w-14 text-left" style={{ color: 'var(--t1)' }}>
@@ -63,7 +63,7 @@ export function ContributionSplit({ assets }: Props) {
             ))}
 
             <div className="pt-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
-              <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.totalPerMonth}</span>
+              <span className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.totalPerMonth}</span>
               <span className="text-xs font-bold tabular-nums ltr" style={{ color: 'var(--at)' }}>{fmt(total)}</span>
             </div>
           </div>

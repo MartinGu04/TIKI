@@ -88,7 +88,7 @@ export function OverviewCards({ stats, assets }: Props) {
             />
             <div className="relative">
               <div className="flex items-start justify-between mb-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest leading-tight" style={{ color: 'var(--t3)' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-widest leading-tight" style={{ color: 'var(--t3)' }}>
                   {card.label}
                 </p>
                 <div className="p-1.5 rounded-lg shrink-0" style={card.iconStyle}>
@@ -99,7 +99,7 @@ export function OverviewCards({ stats, assets }: Props) {
                 {card.value}
               </p>
               {card.sub && (
-                <p className="text-[11px] mt-2 leading-tight" style={{ color: 'var(--t4)' }}>{card.sub}</p>
+                <p className="text-[12px] mt-2 leading-tight" style={{ color: 'var(--t4)' }}>{card.sub}</p>
               )}
             </div>
           </div>

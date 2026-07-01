@@ -59,7 +59,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
     <div className="rounded-2xl card overflow-hidden">
       <div className="px-6 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
         <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.myInvestments}</h2>
-        <p className="text-[11px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.positions(assets.length)}</p>
+        <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.positions(assets.length)}</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -105,12 +105,12 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
                       <div className="w-1 h-9 rounded-full shrink-0" style={{ backgroundColor: asset.color }} />
                       <div>
                         <p className="text-sm font-bold ticker" style={{ color: 'var(--t1)' }}>{asset.ticker}</p>
-                        <p className="text-[11px] mt-0.5 max-w-[130px] truncate" style={{ color: 'var(--t3)' }}>{asset.name}</p>
+                        <p className="text-[12px] mt-0.5 max-w-[130px] truncate" style={{ color: 'var(--t3)' }}>{asset.name}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={ownerStyle[asset.owner]}>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={ownerStyle[asset.owner]}>
                       {ownerLabel[asset.owner]}
                     </span>
                   </td>
@@ -130,7 +130,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
                     <p className="text-xs font-bold tabular-nums ltr" style={{ color: isPos ? 'var(--up)' : 'var(--dn)' }}>
                       {isPos ? '+' : ''}{fmt(pnl, asset.currency)}
                     </p>
-                    <p className="text-[10px] tabular-nums ltr" style={{ color: isPos ? 'var(--up)' : 'var(--dn)', opacity: 0.7 }}>
+                    <p className="text-[11px] tabular-nums ltr" style={{ color: isPos ? 'var(--up)' : 'var(--dn)', opacity: 0.7 }}>
                       {fmtPct(pnlPct)}
                     </p>
                   </td>
@@ -140,7 +140,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
                         <p className="text-xs tabular-nums ltr" style={{ color: 'var(--t2)' }}>
                           {fmt(asset.monthlyContribution, asset.currency)}
                         </p>
-                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--t3)' }}>{frequencyLabel(asset.frequency)}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--t3)' }}>{frequencyLabel(asset.frequency)}</p>
                       </div>
                     ) : (
                       <span className="text-xs" style={{ color: 'var(--t4)' }}>—</span>
@@ -152,14 +152,14 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
                         <>
                           <button
                             onClick={() => { onDelete(asset.id); setConfirmDelete(null); }}
-                            className="text-[10px] px-2 py-1 rounded-lg transition-all"
+                            className="text-[11px] px-2 py-1 rounded-lg transition-all"
                             style={{ background: 'var(--dn10)', color: 'var(--dn)', border: '1px solid rgba(239,68,68,0.3)' }}
                           >
                             {t.confirm}
                           </button>
                           <button
                             onClick={() => setConfirmDelete(null)}
-                            className="text-[10px] px-2 py-1 rounded-lg transition-all"
+                            className="text-[11px] px-2 py-1 rounded-lg transition-all"
                             style={{ background: 'var(--card-h)', color: 'var(--t3)', border: '1px solid var(--border)' }}
                           >
                             {t.cancel}
@@ -197,7 +197,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
             <tfoot>
               <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--card-h)' }}>
                 <td colSpan={5} style={{ paddingRight: '1.5rem', paddingLeft: '1rem', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.portfolioTotal}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.portfolioTotal}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className="text-sm font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>{fmt(totalValue)}</span>
@@ -238,7 +238,7 @@ function Th({
 }) {
   return (
     <th
-      className={`py-3 px-4 text-[10px] font-semibold uppercase tracking-widest ${onClick ? 'cursor-pointer select-none' : ''}`}
+      className={`py-3 px-4 text-[11px] font-semibold uppercase tracking-widest ${onClick ? 'cursor-pointer select-none' : ''}`}
       style={{ textAlign: align, color: 'var(--t3)', ...style }}
       onClick={onClick}
     >

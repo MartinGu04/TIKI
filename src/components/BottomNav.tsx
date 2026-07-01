@@ -54,7 +54,7 @@ function NavItem({ icon, label, active, onClick }: {
       style={{ color: active ? 'var(--a)' : 'var(--t3)' }}
     >
       {icon}
-      <span className="text-[10px] font-semibold">{label}</span>
+      <span className="text-[11px] font-semibold">{label}</span>
     </button>
   );
 }

@@ -2,26 +2,14 @@ import { TrendingUp, TrendingDown, CalendarClock, Wallet } from 'lucide-react';
 import { Asset, PortfolioStats } from '../types';
 import { useT, useLang } from '../contexts/LanguageContext';
 import { fmt, fmtPct, getNextDepositDate, fmtDate } from '../utils/calculations';
+import { greetingWord } from '../utils/greeting';
 import { Translations } from '../i18n';
 
 interface Props {
   assets: Asset[];
   stats: PortfolioStats;
   onAddAsset: () => void;
-}
-
-function greetingWord(lang: 'he' | 'en'): string {
-  const h = new Date().getHours();
-  if (lang === 'he') {
-    if (h >= 5 && h < 12) return 'בוקר טוב';
-    if (h >= 12 && h < 17) return 'אחר הצהריים';
-    if (h >= 17 && h < 22) return 'ערב טוב';
-    return 'לילה טוב';
-  }
-  if (h >= 5 && h < 12) return 'Good morning';
-  if (h >= 12 && h < 17) return 'Good afternoon';
-  if (h >= 17 && h < 22) return 'Good evening';
-  return 'Good night';
+  userLabel?: string;
 }
 
 function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translations): string {
@@ -32,7 +20,7 @@ function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translat
   return t.personalityBuilding;
 }
 
-export function HomePage({ assets, stats, onAddAsset }: Props) {
+export function HomePage({ assets, stats, onAddAsset, userLabel }: Props) {
   const t = useT();
   const { lang } = useLang();
 
@@ -55,7 +43,7 @@ export function HomePage({ assets, stats, onAddAsset }: Props) {
       {/* Greeting + personality */}
       <div className="animate-slide-up" style={{ animationDelay: '0ms' }}>
         <p className="text-2xl font-bold" style={{ color: 'var(--t1)' }}>
-          {greetingWord(lang)} 👋
+          {greetingWord(lang)}{userLabel ? `, ${userLabel}` : ''} 👋
         </p>
         <p className="text-sm mt-1.5 font-medium" style={{ color: 'var(--t3)' }}>
           {sentence}
@@ -73,7 +61,7 @@ export function HomePage({ assets, stats, onAddAsset }: Props) {
           style={{ background: `radial-gradient(ellipse at 50% -20%, var(--a20) 0%, transparent 65%)` }}
         />
         <div className="relative">
-          <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--t3)' }}>
+          <p className="text-[12px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--t3)' }}>
             {t.ourPortfolio}
           </p>
           {/* Value — single currency shows large hero; mixed shows per-currency stack */}
@@ -123,7 +111,7 @@ export function HomePage({ assets, stats, onAddAsset }: Props) {
         <div className="card card-hover rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Wallet size={14} style={{ color: 'var(--at)' }} />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--t3)' }}>{t.monthlyInvestment}</span>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--t3)' }}>{t.monthlyInvestment}</span>
           </div>
           <p className="text-xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
             {fmt(stats.monthlyContribution)}
@@ -133,14 +121,14 @@ export function HomePage({ assets, stats, onAddAsset }: Props) {
         <div className="card card-hover rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <CalendarClock size={14} style={{ color: 'var(--at)' }} />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--t3)' }}>{t.nextDeposit}</span>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--t3)' }}>{t.nextDeposit}</span>
           </div>
           {nextDeposit ? (
             <>
               <p className="text-xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
                 {fmt(nextDeposit.asset.monthlyContribution, nextDeposit.asset.currency)}
               </p>
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--t3)' }}>
+              <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
                 {fmtDate(nextDeposit.date)}
               </p>
             </>
@@ -154,7 +142,7 @@ export function HomePage({ assets, stats, onAddAsset }: Props) {
       {assets.length > 0 && (
         <div className="animate-slide-up" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t4)' }}>
+            <p className="text-[12px] font-semibold uppercase tracking-widest" style={{ color: 'var(--t4)' }}>
               {t.positions(assets.length)}
             </p>
             <p className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.ourInvestments}</p>

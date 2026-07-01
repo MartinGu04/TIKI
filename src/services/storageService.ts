@@ -53,6 +53,7 @@ function assetToRow(asset: Asset, userId: string) {
     recurrence_weekday: asset.frequency.weekday ?? null,
     recurrence_every_x: asset.frequency.everyXMonths ?? null,
     recurrence_start_date: asset.frequency.startDate ?? null,
+    recurrence_last_processed: asset.frequency.lastProcessedDate ?? null,
     color: asset.color,
     last_price_update: asset.lastPriceUpdate
       ? new Date(asset.lastPriceUpdate).toISOString()
@@ -69,6 +70,7 @@ function rowToAsset(row: any): Asset {
     weekday: row.recurrence_weekday ?? undefined,
     everyXMonths: row.recurrence_every_x ?? undefined,
     startDate: row.recurrence_start_date ?? undefined,
+    lastProcessedDate: row.recurrence_last_processed ?? undefined,
   };
   return {
     id: row.id,

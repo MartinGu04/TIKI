@@ -1,13 +1,16 @@
 import { TrendingUp, Plus, Sparkles } from 'lucide-react';
-import { useT } from '../contexts/LanguageContext';
+import { useT, useLang } from '../contexts/LanguageContext';
+import { greetingWord } from '../utils/greeting';
 
 interface Props {
   onAddAsset: () => void;
   onLoadDemo: () => void;
+  userLabel?: string;
 }
 
-export function EmptyState({ onAddAsset, onLoadDemo }: Props) {
+export function EmptyState({ onAddAsset, onLoadDemo, userLabel }: Props) {
   const t = useT();
+  const { lang } = useLang();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center animate-fade-in">
@@ -26,9 +29,9 @@ export function EmptyState({ onAddAsset, onLoadDemo }: Props) {
           <TrendingUp size={36} strokeWidth={1.5} style={{ color: 'var(--at)' }} />
         </div>
 
-        {/* Headline */}
+        {/* Headline — personalized greeting once signed in, generic welcome otherwise */}
         <h1 className="text-3xl font-black tracking-tight mb-3" style={{ color: 'var(--t1)' }}>
-          {t.welcomeTitle}
+          {userLabel ? `${greetingWord(lang)}, ${userLabel} 👋` : t.welcomeTitle}
         </h1>
         <p className="text-base leading-relaxed mb-2" style={{ color: 'var(--t2)' }}>
           {t.welcomeSubtitle}
@@ -46,7 +49,7 @@ export function EmptyState({ onAddAsset, onLoadDemo }: Props) {
           ] as [string, string][]).map(([label, sub]) => (
             <div key={label} className="card rounded-xl p-3">
               <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--t1)' }}>{label}</p>
-              <p className="text-[10px]" style={{ color: 'var(--t3)' }}>{sub}</p>
+              <p className="text-[11px]" style={{ color: 'var(--t3)' }}>{sub}</p>
             </div>
           ))}
         </div>
@@ -72,7 +75,7 @@ export function EmptyState({ onAddAsset, onLoadDemo }: Props) {
           </button>
         </div>
 
-        <p className="text-[11px] mt-6" style={{ color: 'var(--t4)' }}>
+        <p className="text-[12px] mt-6" style={{ color: 'var(--t4)' }}>
           {t.dataPrivacy}
         </p>
       </div>

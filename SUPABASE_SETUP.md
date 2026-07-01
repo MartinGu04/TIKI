@@ -74,6 +74,7 @@ create table public.investments (
   recurrence_weekday integer,
   recurrence_every_x integer,
   recurrence_start_date text,
+  recurrence_last_processed text,
   color text not null default '#6366f1',
   last_price_update timestamptz,
   created_at timestamptz default now(),
@@ -99,6 +100,8 @@ alter table public.app_settings enable row level security;
 -- profiles
 create policy "Users can view own profile"
   on public.profiles for select using (auth.uid() = id);
+create policy "Users can insert own profile"
+  on public.profiles for insert with check (auth.uid() = id);
 create policy "Users can update own profile"
   on public.profiles for update using (auth.uid() = id);
 
@@ -124,3 +127,26 @@ create policy "Users can update own settings"
 ## 5. Verify
 
 After running the SQL, open the Table Editor and confirm the three tables exist with RLS enabled (indicated by a shield icon).
+
+## 6. Migration: recurring investment tracking (required if your project predates this)
+
+If your `investments` table was created before the `recurrence_last_processed`
+column existed, run this in the SQL Editor before deploying — otherwise every
+save/update of an investment will fail with a "column not found" error:
+
+```sql
+alter table public.investments
+  add column if not exists recurrence_last_processed text;
+```
+
+## 7. Migration: profiles insert policy (required if your project predates this)
+
+The client calls `profiles.upsert(...)` as a defensive fallback in case the
+`handle_new_user` trigger doesn't fire (e.g. it was added after your project,
+or failed silently). Without an INSERT policy, that upsert gets rejected
+with a 403 whenever the row doesn't already exist. Run this once:
+
+```sql
+create policy "Users can insert own profile"
+  on public.profiles for insert with check (auth.uid() = id);
+```

@@ -16,6 +16,8 @@ export interface FrequencyConfig {
   weekday?: number;      // 0 (Sun) – 6 (Sat), for weekly
   everyXMonths?: number; // for every-x-months
   startDate?: string;    // ISO yyyy-mm-dd, when the first deposit happens
+  /** ISO yyyy-mm-dd of the last recurring deposit already applied to quantity/avgBuyPrice. */
+  lastProcessedDate?: string;
 }
 
 export interface Asset {

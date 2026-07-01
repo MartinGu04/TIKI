@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { CloudUpload, HardDrive, X } from 'lucide-react';
+import { CloudUpload, HardDrive, Trash2, X } from 'lucide-react';
 import { useT } from '../contexts/LanguageContext';
 
 interface Props {
   assetCount: number;
   onSaveToCloud: () => Promise<void>;
   onKeepLocal: () => void;
+  onClearLocal: () => void;
   onDismiss: () => void;
 }
 
-export function MigrationPrompt({ assetCount, onSaveToCloud, onKeepLocal, onDismiss }: Props) {
+export function MigrationPrompt({ assetCount, onSaveToCloud, onKeepLocal, onClearLocal, onDismiss }: Props) {
   const t = useT();
   const [loading, setLoading] = useState(false);
 
@@ -64,6 +65,15 @@ export function MigrationPrompt({ assetCount, onSaveToCloud, onKeepLocal, onDism
           >
             <HardDrive size={15} />
             {t.keepLocal}
+          </button>
+
+          <button
+            onClick={onClearLocal}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all hover:opacity-70"
+            style={{ color: 'var(--dn)', background: 'var(--dn10)', border: '1px solid transparent' }}
+          >
+            <Trash2 size={15} />
+            {t.clearLocalData}
           </button>
         </div>
       </div>

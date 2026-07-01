@@ -1,8 +1,9 @@
 import { SearchResult, PriceData } from '../types';
 
-const YF_BASE = 'https://query1.finance.yahoo.com';
-const YF_SEARCH_BASE = 'https://query2.finance.yahoo.com';
-const PROXY = 'https://corsproxy.io/?url=';
+// Served by api/market.ts on Vercel (serverless function) and mirrored by a
+// Vite dev-server middleware locally — the browser never calls Yahoo Finance
+// directly, so there's no CORS/third-party-proxy dependency.
+const API_BASE = '/api/market';
 const LS_PREFIX = 'tiki-mkt:';
 
 const CACHE_TTL = {
@@ -42,56 +43,20 @@ function lsSet<T>(key: string, data: T, ttl: number) {
   }
 }
 
-async function proxyFetch<T>(url: string): Promise<T> {
+async function apiFetch<T>(params: Record<string, string>): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
-    const res = await fetch(PROXY + encodeURIComponent(url), {
-      signal: controller.signal,
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    });
-    clearTimeout(timeout);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const qs = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE}?${qs}`, { signal: controller.signal });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      throw new Error(body?.error ?? `HTTP ${res.status}`);
+    }
     return (await res.json()) as T;
   } finally {
     clearTimeout(timeout);
   }
-}
-
-// ─── Types from Yahoo Finance ────────────────────────────────────────────────
-
-interface YFSearchQuote {
-  symbol: string;
-  shortname?: string;
-  longname?: string;
-  exchange: string;
-  quoteType: string;
-  score: number;
-}
-
-interface YFSearchResponse {
-  quotes: YFSearchQuote[];
-}
-
-interface YFChartMeta {
-  currency: string;
-  symbol: string;
-  regularMarketPrice: number;
-  shortName?: string;
-  longName?: string;
-}
-
-interface YFChartResponse {
-  chart: {
-    result: Array<{
-      meta: YFChartMeta;
-      timestamp?: number[];
-      indicators: {
-        quote: Array<{ close: (number | null)[] }>;
-      };
-    }> | null;
-    error: null | { message: string };
-  };
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -101,20 +66,7 @@ export async function searchTicker(query: string): Promise<SearchResult[]> {
   const cached = lsGet<SearchResult[]>(cacheKey);
   if (cached) return cached;
 
-  const url = `${YF_SEARCH_BASE}/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&enableFuzzyQuery=false`;
-  const data = await proxyFetch<YFSearchResponse>(url);
-
-  const results: SearchResult[] = (data.quotes ?? [])
-    .filter((q) => q.quoteType !== 'CURRENCY' && q.quoteType !== 'MUTUALFUND')
-    .slice(0, 6)
-    .map((q) => ({
-      symbol: q.symbol,
-      ticker: q.symbol.replace(/\.[A-Z]+$/, ''),
-      name: q.longname || q.shortname || q.symbol,
-      exchange: q.exchange,
-      type: q.quoteType,
-      currency: '',
-    }));
+  const { results } = await apiFetch<{ results: SearchResult[] }>({ action: 'search', q: query });
 
   lsSet(cacheKey, results, CACHE_TTL.search);
   return results;
@@ -125,19 +77,7 @@ export async function getCurrentPrice(symbol: string): Promise<PriceData> {
   const cached = lsGet<PriceData>(cacheKey);
   if (cached) return cached;
 
-  const url = `${YF_BASE}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
-  const data = await proxyFetch<YFChartResponse>(url);
-
-  const result = data.chart.result?.[0];
-  if (!result) throw new Error('No data for ' + symbol);
-
-  const meta = result.meta;
-  const out: PriceData = {
-    symbol,
-    price: meta.regularMarketPrice,
-    currency: meta.currency ?? 'USD',
-    name: meta.longName ?? meta.shortName ?? symbol,
-  };
+  const out = await apiFetch<PriceData>({ action: 'quote', symbol });
 
   lsSet(cacheKey, out, CACHE_TTL.price);
   return out;
@@ -149,37 +89,10 @@ export async function getHistoricalPrice(symbol: string, date: Date): Promise<nu
   const cached = lsGet<number>(cacheKey);
   if (cached !== null) return cached;
 
-  // Fetch a 5-day window around the date to handle weekends/holidays
-  const start = Math.floor(date.getTime() / 1000) - 4 * 86400;
-  const end = Math.floor(date.getTime() / 1000) + 4 * 86400;
-  const url = `${YF_BASE}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${start}&period2=${end}`;
-  const data = await proxyFetch<YFChartResponse>(url);
+  const { price } = await apiFetch<{ price: number }>({ action: 'history', symbol, date: dateStr });
 
-  const result = data.chart.result?.[0];
-  if (!result) throw new Error('No historical data for ' + symbol);
-
-  // Find the closing price closest to the target date
-  const timestamps = result.timestamp ?? [];
-  const closes = result.indicators.quote[0]?.close ?? [];
-
-  let bestPrice: number | null = null;
-  let bestDelta = Infinity;
-  const target = date.getTime() / 1000;
-
-  for (let i = 0; i < timestamps.length; i++) {
-    const close = closes[i];
-    if (close == null) continue;
-    const delta = Math.abs(timestamps[i] - target);
-    if (delta < bestDelta) {
-      bestDelta = delta;
-      bestPrice = close;
-    }
-  }
-
-  if (bestPrice === null) throw new Error('Could not find price for that date');
-
-  lsSet(cacheKey, bestPrice, CACHE_TTL.historicalPrice);
-  return bestPrice;
+  lsSet(cacheKey, price, CACHE_TTL.historicalPrice);
+  return price;
 }
 
 /** Returns the last cached price for a symbol (or null if no cache exists). */

@@ -80,6 +80,11 @@ const he = {
   priceReceived: 'מחיר עדכני התקבל',
   couldNotConnect: 'לא ניתן להתחבר לשוק. בדקו את הרשת.',
   couldNotFetchHistory: 'לא הצלחנו לקבל מחיר היסטורי לתאריך זה.',
+  enterManually: 'לא מוצאים? הזינו פרטים ידנית',
+  manualEntry: 'הזנה ידנית',
+  manualEntryReady: 'פרטים ידניים מוכנים',
+  assetNamePlaceholder: 'שם הנכס',
+  currencyLabel: 'מטבע',
   whoIsOwner: 'בעלים',
   frequencyLabel: 'תדירות הפקדה',
   contributionAmount: 'סכום הפקדה',
@@ -162,6 +167,7 @@ const he = {
   migrationBody: (n: number) => `נמצאו ${n} השקעות שמורות במכשיר זה. האם לשמור אותן לחשבון שלכם?`,
   saveToAccount: 'שמור בחשבון',
   keepLocal: 'שמור מקומי בלבד',
+  clearLocalData: 'מחק נתונים מקומיים',
   saving: 'שומר...',
 
   // Cloud sync
@@ -252,6 +258,11 @@ const en: T = {
   priceReceived: 'Live price received',
   couldNotConnect: 'Could not connect to market. Check your network.',
   couldNotFetchHistory: 'Could not fetch historical price for that date.',
+  enterManually: "Can't find it? Enter details manually",
+  manualEntry: 'Manual entry',
+  manualEntryReady: 'Manual details ready',
+  assetNamePlaceholder: 'Asset name',
+  currencyLabel: 'Currency',
   whoIsOwner: 'Owner',
   frequencyLabel: 'Investment frequency',
   contributionAmount: 'Contribution amount',
@@ -326,6 +337,7 @@ const en: T = {
   migrationBody: (n: number) => `Found ${n} investment${n !== 1 ? 's' : ''} saved on this device. Save them to your account?`,
   saveToAccount: 'Save to account',
   keepLocal: 'Keep local only',
+  clearLocalData: 'Clear local data',
   saving: 'Saving...',
 
   // Cloud sync
