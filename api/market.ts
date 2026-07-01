@@ -1,4 +1,10 @@
-import { searchYahoo, getQuote, getHistoricalClose } from './_lib/yahoo';
+import { searchYahoo, getQuote, getHistoricalClose } from './lib/yahoo';
+
+// Gives our own error handling a safety margin below the platform's function
+// timeout, so a slow/blocked Yahoo response results in a clean JSON 502 from
+// us instead of Vercel force-killing the function (which surfaces to the
+// client as a raw 500 with no body).
+export const config = { maxDuration: 15 };
 
 // Minimal duck-typed shape of Vercel's Node function req/res — avoids adding
 // @vercel/node as a dependency just for types.
@@ -12,14 +18,17 @@ interface Res {
 }
 
 function param(req: Req, key: string): string {
-  const v = req.query[key];
+  const v = req?.query?.[key];
   return Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
 }
 
 export default async function handler(req: Req, res: Res) {
-  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=300');
-
+  // Everything — including header-setting and query parsing — runs inside
+  // this try block. Nothing here should ever escape uncaught: an uncaught
+  // exception is what turns into a raw 500 with no JSON body on Vercel.
   try {
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=300');
+
     const action = param(req, 'action');
 
     if (action === 'search') {
@@ -48,6 +57,14 @@ export default async function handler(req: Req, res: Res) {
 
     res.status(400).json({ error: 'unknown action' });
   } catch (e) {
-    res.status(502).json({ error: e instanceof Error ? e.message : 'market data unavailable' });
+    // Any failure below this point (Yahoo unreachable/blocked, malformed
+    // response, timeout, etc.) still gets a proper JSON error instead of an
+    // opaque platform 500.
+    const message = e instanceof Error ? e.message : 'market data unavailable';
+    try {
+      res.status(502).json({ error: message });
+    } catch {
+      // Response could not be sent (e.g. already sent) — nothing more we can do.
+    }
   }
 }

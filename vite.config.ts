@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { searchYahoo, getQuote, getHistoricalClose } from './api/_lib/yahoo'
+import { searchYahoo, getQuote, getHistoricalClose } from './api/lib/yahoo'
 
 // Mirrors api/market.ts so `npm run dev` behaves the same as the deployed
 // Vercel serverless function — the browser never talks to Yahoo directly.

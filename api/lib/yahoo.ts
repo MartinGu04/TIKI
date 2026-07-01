@@ -12,13 +12,22 @@ const HEADERS = {
   Accept: 'application/json',
 };
 
+// Kept comfortably below the function's maxDuration (see api/market.ts) so
+// there's always time left for our own error handling to run and respond.
+const FETCH_TIMEOUT_MS = 9000;
+
 async function fetchJson<T>(url: string): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal, headers: HEADERS });
     if (!res.ok) throw new Error(`Yahoo Finance HTTP ${res.status}`);
     return (await res.json()) as T;
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Yahoo Finance request timed out');
+    }
+    throw e;
   } finally {
     clearTimeout(timeout);
   }
