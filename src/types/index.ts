@@ -74,6 +74,16 @@ export interface SearchResult {
   currency: string;
 }
 
+export type MarketStatusValue = 'open' | 'closed';
+
+export interface MarketStatus {
+  status: MarketStatusValue;
+  exchange: string;    // full exchange name — the only market label ever shown
+  opensAt: number;     // unix ms
+  closesAt: number;    // unix ms
+  nextOpenAt: number;  // unix ms — best-effort, see api/lib/yahoo.ts for the caveat
+}
+
 export interface PriceData {
   symbol: string;
   price: number;
@@ -81,6 +91,7 @@ export interface PriceData {
   name: string;
   previousClose: number | null;
   exchange: string | null;
+  marketStatus: MarketStatus | null;
 }
 
 export interface ChartPoint {

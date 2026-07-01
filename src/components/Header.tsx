@@ -44,6 +44,32 @@ function LiveClock() {
   );
 }
 
+// Compact mobile-only equivalent — one subtle line, minute precision (no
+// per-second tick, deliberately quieter than the desktop clock), e.g.
+// "Thu, Jul 2 · 12:25" / "יום ה׳, 2 ביולי · 12:25".
+function CompactClock() {
+  const [now, setNow] = useState(new Date());
+  const { lang } = useLang();
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const locale = lang === 'he' ? 'he-IL' : 'en-US';
+  const dateStr = now.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+
+  return (
+    <div className="sm:hidden flex items-center gap-1.5 text-[11px] font-medium whitespace-nowrap">
+      <span style={{ color: 'var(--t3)' }}>{dateStr}</span>
+      <span style={{ color: 'var(--t4)' }}>·</span>
+      <span className="ltr tabular-nums" dir="ltr" style={{ color: 'var(--t2)' }}>{hh}:{mm}</span>
+    </div>
+  );
+}
+
 function NavBtn({ active, onClick, icon, label }: {
   active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
 }) {
@@ -75,14 +101,15 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
   return (
     <header
       className="sticky top-0 z-40 backdrop-blur-xl border-b"
-      style={{
-        background: 'var(--hdr)', borderColor: 'var(--border)',
-        // env() alone is 0 in a normal mobile browser tab (only non-zero in
-        // standalone/PWA mode on notched iOS) — max() guarantees breathing
-        // room at the top either way, not just when installed to the home screen.
-        paddingTop: 'max(1.25rem, env(safe-area-inset-top))',
-      }}
+      style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
     >
+      {/* Pure safe-area reservation — a separate spacer, not the header's own
+          padding, so the nav row below stays vertically balanced (h-14 +
+          items-center) regardless of device. Resolves to 0 in a normal
+          browser tab; only non-zero in standalone/PWA mode on notched iOS,
+          where it still shares the header's background so it reads as one
+          continuous bar rather than a gap above it. */}
+      <div style={{ paddingTop: 'env(safe-area-inset-top)' }} />
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-14 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 
         {/* Start column (RTL: right side) — brand + mobile avatar + primary nav + primary action */}
@@ -147,18 +174,26 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
           )}
         </div>
 
-        {/* Center column — date + live clock, always at the true midpoint of the header */}
-        <LiveClock />
+        {/* Center column — date + clock, always at the true midpoint of the
+            header. Compact one-line version on mobile, fuller version at sm+. */}
+        <div className="flex items-center justify-center">
+          <CompactClock />
+          <LiveClock />
+        </div>
 
         {/* End column (RTL: left side). Desktop order (DOM/default): theme,
-            language, identity chip + sign out. Mobile visually reorders to
-            sign-out, language, theme (nearest-to-farthest from center) via
-            the order utilities below — the avatar chip is desktop-only here
-            since it moves next to the logo on mobile. */}
+            language, identity chip + sign out. Mobile visually reorders via
+            the order utilities below so the far edge (nearest the screen
+            corner) reads sign-out, then theme, then language nearest center
+            — i.e. screen-edge-to-center: [Logout][Theme][Language]. This
+            mirrors automatically for LTR since justify-self-end/RTL-aware
+            flex ordering are already direction-logical, no per-language
+            branching needed. The avatar chip is desktop-only here since it
+            moves next to the logo on mobile. */}
         <div className="flex items-center gap-2 justify-self-end">
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl transition-all hover:opacity-80 order-3 sm:order-none"
+            className="p-2 rounded-xl transition-all hover:opacity-80 order-2 sm:order-none"
             style={{
               color: themeIconColor,
               background: 'var(--card)',
@@ -171,7 +206,7 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
 
           <button
             onClick={() => setLang(lang === 'he' ? 'en' : 'he')}
-            className="text-[12px] font-bold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 order-2 sm:order-none"
+            className="text-[12px] font-bold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 order-1 sm:order-none"
             style={{
               color: 'var(--t3)',
               background: 'var(--card)',
@@ -184,7 +219,7 @@ export function Header({ view, onViewChange, onAddAsset, hasAssets, userLabel, u
 
           {/* User chip + sign out — kept together, sign out unmistakably red/danger */}
           {userLabel && onSignOut && (
-            <div className="flex items-center gap-1.5 order-1 sm:order-none">
+            <div className="flex items-center gap-1.5 order-3 sm:order-none">
               <div
                 className="hidden sm:flex items-center gap-1.5 ps-1 pe-1 sm:pe-2.5 py-1 rounded-full"
                 style={{ background: 'var(--card)', border: '1px solid var(--border)' }}

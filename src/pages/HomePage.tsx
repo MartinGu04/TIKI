@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { TrendingUp, TrendingDown, CalendarClock, Wallet } from 'lucide-react';
-import { Asset, PortfolioStats } from '../types';
+import { TrendingUp, TrendingDown, CalendarClock } from 'lucide-react';
+import { Asset, PortfolioStats, PriceData } from '../types';
 import { useT, useLang } from '../contexts/LanguageContext';
 import { fmt, fmtPct, getNextDepositDate, fmtDate, DailyChange } from '../utils/calculations';
 import { greetingWord } from '../utils/greeting';
 import { Translations } from '../i18n';
 import { TickerDetailModal } from '../components/TickerDetailModal';
+import { RecurringDepositsModal } from '../components/RecurringDepositsModal';
+import { MarketExchangesModal } from '../components/MarketExchangesModal';
+import { MarketStatusIcon } from '../components/MarketStatusIcon';
+import { useMarketSummary } from '../hooks/useMarketSummary';
+import { useMarketExchanges } from '../hooks/useMarketExchanges';
 
 interface Props {
   assets: Asset[];
@@ -14,6 +19,7 @@ interface Props {
   userLabel?: string;
   dailyChange: DailyChange | null;
   pricesStale: boolean;
+  livePrices: Record<string, PriceData>;
 }
 
 function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translations): string {
@@ -24,10 +30,14 @@ function personalitySentence(stats: PortfolioStats, assets: Asset[], t: Translat
   return t.personalityBuilding;
 }
 
-export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pricesStale }: Props) {
+export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pricesStale, livePrices }: Props) {
   const t = useT();
   const { lang } = useLang();
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
+  const [showDepositBreakdown, setShowDepositBreakdown] = useState(false);
+  const [showMarketExchanges, setShowMarketExchanges] = useState(false);
+  const marketSummary = useMarketSummary(assets, livePrices, t);
+  const marketExchanges = useMarketExchanges(assets, livePrices);
 
   const isProfit = stats.profitLoss >= 0;
 
@@ -54,6 +64,16 @@ export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pr
         <p className="text-sm mt-1.5 font-medium" style={{ color: 'var(--t3)' }}>
           {sentence}
         </p>
+        {marketSummary && (
+          <button
+            onClick={() => setShowMarketExchanges(true)}
+            className="flex items-center gap-1.5 text-xs font-medium mt-1.5 transition-opacity hover:opacity-70"
+            style={{ color: 'var(--t3)' }}
+          >
+            <MarketStatusIcon isOpen={marketSummary.isOpen} size={7} />
+            {marketSummary.label}
+          </button>
+        )}
       </div>
 
       {/* Hero card — total value + P&L */}
@@ -129,41 +149,35 @@ export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pr
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '80ms' }}>
-        <div className="card card-hover rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet size={14} style={{ color: 'var(--at)' }} />
-            <span className="text-[12px] font-medium" style={{ color: 'var(--t3)' }}>{t.monthlyInvestment}</span>
-          </div>
-          <p className="text-xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
-            {fmt(stats.monthlyContribution)}
-          </p>
+      {/* Next Deposit — replaces the old two-card grid; the separate Monthly
+          Investment card was dropped for duplicating info this card (plus
+          its breakdown popup) already communicates. */}
+      <div
+        className={`card card-hover rounded-2xl p-4 animate-slide-up ${nextDeposit ? 'cursor-pointer' : ''}`}
+        style={{ animationDelay: '80ms' }}
+        onClick={() => nextDeposit && setShowDepositBreakdown(true)}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarClock size={14} style={{ color: 'var(--at)' }} />
+          <span className="text-[12px] font-medium" style={{ color: 'var(--t3)' }}>{t.nextDeposit}</span>
         </div>
-
-        <div className="card card-hover rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarClock size={14} style={{ color: 'var(--at)' }} />
-            <span className="text-[12px] font-medium" style={{ color: 'var(--t3)' }}>{t.nextDeposit}</span>
-          </div>
-          {nextDeposit ? (
-            <>
-              <p className="text-xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
-                {fmt(nextDeposit.asset.monthlyContribution, nextDeposit.asset.currency)}
+        {nextDeposit ? (
+          <>
+            <p className="text-xl font-bold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
+              {fmt(nextDeposit.asset.monthlyContribution, nextDeposit.asset.currency)}
+            </p>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
+              {fmtDate(nextDeposit.date)}
+            </p>
+            {upcomingDeposits.length > 1 && (
+              <p className="text-[11px] mt-1 font-medium" style={{ color: 'var(--at)' }}>
+                {t.recurringActiveCount(upcomingDeposits.length)}
               </p>
-              <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
-                {fmtDate(nextDeposit.date)}
-              </p>
-              {upcomingDeposits.length > 1 && (
-                <p className="text-[11px] mt-1 font-medium" style={{ color: 'var(--at)' }}>
-                  {t.recurringActiveCount(upcomingDeposits.length)}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noRecurring}</p>
-          )}
-        </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noRecurring}</p>
+        )}
       </div>
 
       {/* Progress section — simplified position sentiment */}
@@ -175,7 +189,10 @@ export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pr
             </p>
             <p className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.ourInvestments}</p>
           </div>
-          <p className="text-xs mb-2" style={{ color: 'var(--t3)' }}>{t.sincePurchaseCaption}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs" style={{ color: 'var(--t3)' }}>{t.sincePurchaseCaption}</p>
+            <p className="text-xs" style={{ color: 'var(--t3)' }}>{t.allocationTitle}</p>
+          </div>
           <div className="space-y-2">
             {assets.map((a, i) => {
               const roi = a.avgBuyPrice > 0
@@ -205,12 +222,20 @@ export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pr
                       {fmtPct(roi)}
                     </span>
                   </div>
-                  {/* Weight bar */}
-                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${(weight * 100).toFixed(1)}%`, backgroundColor: a.color, opacity: 0.7 }}
-                    />
+                  {/* Allocation bar — explicit % alongside it so the bar's
+                      meaning (share of portfolio) is self-evident rather
+                      than implied purely by relative bar length, matching
+                      the same convention already used in AllocationDonut. */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 rounded-full overflow-hidden flex-1" style={{ background: 'var(--border)' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${(weight * 100).toFixed(1)}%`, backgroundColor: a.color, opacity: 0.7 }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-semibold tabular-nums ltr shrink-0" style={{ color: 'var(--t3)' }}>
+                      {(weight * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
               );
@@ -220,7 +245,20 @@ export function HomePage({ assets, stats, onAddAsset, userLabel, dailyChange, pr
       )}
 
       {detailAsset && (
-        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} />
+        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} quote={livePrices[detailAsset.symbol]} />
+      )}
+
+      {showDepositBreakdown && nextDeposit && (
+        <RecurringDepositsModal
+          deposits={upcomingDeposits}
+          totalMonthly={stats.monthlyContribution}
+          nextDate={nextDeposit.date}
+          onClose={() => setShowDepositBreakdown(false)}
+        />
+      )}
+
+      {showMarketExchanges && (
+        <MarketExchangesModal exchanges={marketExchanges} onClose={() => setShowMarketExchanges(false)} />
       )}
     </div>
   );

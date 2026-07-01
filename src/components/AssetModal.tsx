@@ -193,7 +193,7 @@ function Step1({ state: s, setState, onNext, t }: {
                 </div>
               )}
               {s.currentPrice !== null && !s.priceLoading && (
-                <p className="text-sm font-semibold mt-0.5 ltr" style={{ color: 'var(--up)' }}>
+                <p className="text-sm font-semibold mt-0.5 ltr" style={{ color: 'var(--t1)' }}>
                   {fmtPrice(s.currentPrice, s.currency)}
                 </p>
               )}

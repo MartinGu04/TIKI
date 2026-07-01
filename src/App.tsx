@@ -242,10 +242,13 @@ function TikiApp({ userId }: { userId: string | null }) {
         ) : view === 'home' ? (
           <HomePage
             assets={displayAssets} stats={stats} onAddAsset={() => setModalMode('add')} userLabel={userLabel}
-            dailyChange={dailyChange} pricesStale={pricesStale}
+            dailyChange={dailyChange} pricesStale={pricesStale} livePrices={livePrices}
           />
         ) : (
-          <AdvancedPage assets={displayAssets} stats={stats} onEdit={openEditModal} onDelete={handleDeleteAsset} />
+          <AdvancedPage
+            assets={displayAssets} stats={stats} onEdit={openEditModal} onDelete={handleDeleteAsset}
+            livePrices={livePrices}
+          />
         )}
       </main>
 

@@ -4,12 +4,17 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Asset, ChartPoint, ChartRange, PriceData } from '../types';
 import { getCurrentPrice, getChartRange } from '../services/marketData';
 import { fmtPrice, fmtPct, fmt, currencySymbol } from '../utils/calculations';
+import { formatMarketTiming } from '../utils/marketStatus';
+import { usePriceFlash } from '../hooks/usePriceFlash';
+import { MarketStatusIcon } from './MarketStatusIcon';
 import { useT } from '../contexts/LanguageContext';
 import { Translations } from '../i18n';
 
 interface Props {
   asset: Asset;
   onClose: () => void;
+  /** Already-fetched live quote (from the same useLivePrices call Home/Advanced already made) — avoids a duplicate fetch when available. */
+  quote?: PriceData;
 }
 
 // Ordered shortest-to-longest — laid out in each language's natural reading
@@ -34,10 +39,10 @@ function formatAxisPrice(v: number, currency: string): string {
   return `${currencySymbol(currency)}${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
-export function TickerDetailModal({ asset, onClose }: Props) {
+export function TickerDetailModal({ asset, onClose, quote }: Props) {
   const t = useT();
-  const [price, setPrice] = useState<PriceData | null>(null);
-  const [priceLoading, setPriceLoading] = useState(true);
+  const [price, setPrice] = useState<PriceData | null>(quote ?? null);
+  const [priceLoading, setPriceLoading] = useState(!quote);
   const [priceError, setPriceError] = useState(false);
   const [range, setRange] = useState<ChartRange>('1mo');
   const [chartData, setChartData] = useState<ChartPoint[] | null>(null);
@@ -45,6 +50,10 @@ export function TickerDetailModal({ asset, onClose }: Props) {
   const [chartError, setChartError] = useState(false);
 
   useEffect(() => {
+    // Reuse the quote Home/Advanced already fetched via useLivePrices when
+    // available — only self-fetch as a fallback (e.g. no App-level quote
+    // resolved yet for this symbol).
+    if (quote) { setPrice(quote); setPriceLoading(false); setPriceError(false); return; }
     let alive = true;
     setPriceLoading(true);
     setPriceError(false);
@@ -52,7 +61,7 @@ export function TickerDetailModal({ asset, onClose }: Props) {
       .then((p) => { if (alive) { setPrice(p); setPriceLoading(false); } })
       .catch(() => { if (alive) { setPriceError(true); setPriceLoading(false); } });
     return () => { alive = false; };
-  }, [asset.symbol]);
+  }, [asset.symbol, quote]);
 
   useEffect(() => {
     let alive = true;
@@ -66,6 +75,7 @@ export function TickerDetailModal({ asset, onClose }: Props) {
 
   const currency = price?.currency ?? asset.currency;
   const livePrice = price?.price ?? asset.currentPrice;
+  const priceFlash = usePriceFlash(livePrice);
   const exchange = price?.exchange ?? asset.exchange ?? null;
 
   // Today's change (independent of the selected chart range) — kept as a
@@ -127,7 +137,12 @@ export function TickerDetailModal({ asset, onClose }: Props) {
               <p className="text-xs" style={{ color: 'var(--dn)' }}>{t.couldNotConnect}</p>
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-3xl sm:text-4xl font-black tabular-nums ltr" style={{ color: 'var(--t1)' }}>
+                <span
+                  className={`text-3xl sm:text-4xl font-black tabular-nums ltr rounded-lg px-1 -mx-1 ${
+                    priceFlash === 'up' ? 'animate-flash-up' : priceFlash === 'down' ? 'animate-flash-down' : ''
+                  }`}
+                  style={{ color: 'var(--t1)' }}
+                >
                   {fmtPrice(livePrice, currency)}
                 </span>
                 {rangeChange !== null && rangeChangePct !== null && (
@@ -154,6 +169,19 @@ export function TickerDetailModal({ asset, onClose }: Props) {
             )}
             <p className="text-xs mt-1.5" style={{ color: 'var(--t3)' }}>{t.liveMarketPrice}</p>
           </div>
+
+          {/* Market info — status, exchange, timing. Three lines, strong
+              hierarchy, no label/value table. */}
+          {price?.marketStatus && (
+            <div className="rounded-xl p-4 sm:p-5" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
+              <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--t1)' }}>
+                <MarketStatusIcon isOpen={price.marketStatus.status === 'open'} />
+                <span>{price.marketStatus.status === 'open' ? t.marketOpen : t.marketClosed}</span>
+              </p>
+              <p className="text-sm mt-1" style={{ color: 'var(--t2)' }}>{price.marketStatus.exchange}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--t3)' }}>{formatMarketTiming(price.marketStatus, t)}</p>
+            </div>
+          )}
 
           {/* Range toggle + chart */}
           <div className="rounded-xl p-3 sm:p-4" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>

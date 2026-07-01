@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { Asset } from '../types';
+import { Asset, PriceData } from '../types';
 import { fmt, fmtPrice, fmtPct, frequencyLabel } from '../utils/calculations';
 import { useT, useLang } from '../contexts/LanguageContext';
 import { TickerDetailModal } from './TickerDetailModal';
@@ -9,12 +9,13 @@ interface Props {
   assets: Asset[];
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
+  livePrices: Record<string, PriceData>;
 }
 
 type SortKey = 'value' | 'pnl' | 'ticker';
 type SortDir = 'asc' | 'desc';
 
-export function AssetList({ assets, onEdit, onDelete }: Props) {
+export function AssetList({ assets, onEdit, onDelete, livePrices }: Props) {
   const t = useT();
   const { dir } = useLang();
   const [sortKey, setSortKey] = useState<SortKey>('value');
@@ -231,7 +232,7 @@ export function AssetList({ assets, onEdit, onDelete }: Props) {
       </div>
 
       {detailAsset && (
-        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} />
+        <TickerDetailModal asset={detailAsset} onClose={() => setDetailAsset(null)} quote={livePrices[detailAsset.symbol]} />
       )}
     </div>
   );

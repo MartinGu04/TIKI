@@ -47,6 +47,11 @@ interface YFSearchResponse {
   quotes: YFSearchQuote[];
 }
 
+interface YFTradingPeriod {
+  start: number; // unix seconds
+  end: number;   // unix seconds
+}
+
 interface YFChartMeta {
   currency: string;
   symbol: string;
@@ -54,6 +59,9 @@ interface YFChartMeta {
   chartPreviousClose?: number;
   previousClose?: number;
   exchangeName?: string;
+  fullExchangeName?: string;
+  exchangeTimezoneName?: string; // IANA zone, e.g. "America/New_York"
+  currentTradingPeriod?: { pre?: YFTradingPeriod; regular?: YFTradingPeriod; post?: YFTradingPeriod };
   shortName?: string;
   longName?: string;
 }
@@ -79,6 +87,77 @@ interface YFChartResponse {
 function normalizeCurrency(price: number, currency: string): { price: number; currency: string } {
   if (currency === 'GBp' || currency === 'GBX') return { price: price / 100, currency: 'GBP' };
   return { price, currency };
+}
+
+export type MarketStatusValue = 'open' | 'closed';
+
+export interface MarketStatus {
+  status: MarketStatusValue;
+  exchange: string;    // full exchange name — the only market label ever shown to the user
+  opensAt: number;     // unix ms — today's/most-recent regular-session open
+  closesAt: number;    // unix ms — today's/most-recent regular-session close
+  nextOpenAt: number;  // unix ms — best-effort next session open; see caveat below
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function isWeekendInZone(unixMs: number, timeZone: string): boolean {
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(new Date(unixMs));
+  return weekday === 'Sat' || weekday === 'Sun';
+}
+
+// Best-effort only: advances a day at a time from `opensAt`, skipping
+// Saturday/Sunday as observed in the exchange's own timezone (needed here
+// only to determine the correct weekday — never surfaced to the client).
+// This does NOT know market holidays; there is no calendar to maintain, by
+// design, so a holiday will show one incorrect "next open" estimate rather
+// than requiring us to build and keep a per-exchange holiday calendar.
+function computeNextOpenAt(opensAt: number, timeZone: string): number {
+  let candidate = opensAt + DAY_MS;
+  while (isWeekendInZone(candidate, timeZone)) candidate += DAY_MS;
+  return candidate;
+}
+
+// Yahoo's exchange fields are inconsistent for display purposes — some are
+// already-abbreviated codes ("LSE"), some are hybrid labels ("NasdaqGS"),
+// some are just a city ("Milan"). Keyed off the short `exchangeName` code
+// (Yahoo's stable identifier), covering the exchanges TIKI's users are
+// realistically holding — not a global registry. Anything not covered here
+// falls back to Yahoo's own fullExchangeName rather than guessing.
+const EXCHANGE_DISPLAY_NAMES: Record<string, string> = {
+  NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ',
+  NYQ: 'New York Stock Exchange', ASE: 'NYSE American', PCX: 'NYSE Arca',
+  BTS: 'Cboe BZX',
+  LSE: 'London Stock Exchange', IOB: 'London Stock Exchange',
+  MIL: 'Borsa Italiana', GER: 'Deutsche Börse Xetra', FRA: 'Frankfurt Stock Exchange',
+  PAR: 'Euronext Paris', AMS: 'Euronext Amsterdam', BRU: 'Euronext Brussels',
+  LIS: 'Euronext Lisbon', SWX: 'SIX Swiss Exchange', VIE: 'Vienna Stock Exchange',
+  TOR: 'Toronto Stock Exchange', ASX: 'Australian Securities Exchange',
+  HKG: 'Hong Kong Stock Exchange', JPX: 'Tokyo Stock Exchange',
+};
+
+function displayExchangeName(meta: YFChartMeta): string {
+  const code = meta.exchangeName;
+  if (code && EXCHANGE_DISPLAY_NAMES[code]) return EXCHANGE_DISPLAY_NAMES[code];
+  return meta.fullExchangeName ?? code ?? 'Market';
+}
+
+function computeMarketStatus(meta: YFChartMeta, now: number): MarketStatus | null {
+  const period = meta.currentTradingPeriod?.regular;
+  const timeZone = meta.exchangeTimezoneName;
+  if (!period || !timeZone) return null;
+
+  const opensAt = period.start * 1000;
+  const closesAt = period.end * 1000;
+  const status: MarketStatusValue = now >= opensAt && now <= closesAt ? 'open' : 'closed';
+
+  return {
+    status,
+    exchange: displayExchangeName(meta),
+    opensAt,
+    closesAt,
+    nextOpenAt: computeNextOpenAt(opensAt, timeZone),
+  };
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -116,6 +195,7 @@ export interface QuoteDTO {
   name: string;
   previousClose: number | null;
   exchange: string | null;
+  marketStatus: MarketStatus | null;
 }
 
 export async function getQuote(symbol: string): Promise<QuoteDTO> {
@@ -137,6 +217,7 @@ export async function getQuote(symbol: string): Promise<QuoteDTO> {
     name: meta.longName ?? meta.shortName ?? symbol,
     previousClose,
     exchange: meta.exchangeName ?? null,
+    marketStatus: computeMarketStatus(meta, Date.now()),
   };
 }
 
