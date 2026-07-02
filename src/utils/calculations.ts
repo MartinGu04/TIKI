@@ -1,17 +1,17 @@
-import { Asset, FrequencyConfig, PortfolioStats, ProjectionPoint, PriceData } from '../types';
+import { Holding, HoldingStats, PortfolioStats, ProjectionPoint, PriceData } from '../types';
 
 /**
- * Returns a new array with each asset's currentPrice replaced by its live
- * quote where one was fetched successfully, falling back to the asset's
+ * Returns a new array with each holding's currentPrice replaced by its live
+ * quote where one was fetched successfully, falling back to the holding's
  * stored (possibly stale) currentPrice otherwise. Never mutates the input
  * and never gets written back to storage — this is a render-time overlay so
  * portfolio value/ROI/change figures reflect live data without treating the
  * fetch as the new source of truth for the record itself.
  */
-export function overlayLivePrices(assets: Asset[], quotes: Record<string, PriceData>): Asset[] {
-  return assets.map((a) => {
-    const q = quotes[a.symbol];
-    return q ? { ...a, currentPrice: q.price } : a;
+export function overlayLivePrices<T extends Holding>(holdings: T[], quotes: Record<string, PriceData>): T[] {
+  return holdings.map((h) => {
+    const q = quotes[h.symbol];
+    return q ? { ...h, currentPrice: q.price } : h;
   });
 }
 
@@ -22,45 +22,70 @@ export interface DailyChange {
 
 /**
  * Portfolio-wide day-over-day change, using each live quote's previousClose.
- * Assets without a resolved previousClose (fetch failed, or a manual entry
+ * Holdings without a resolved previousClose (fetch failed, or a manual entry
  * with no market data) are excluded from both sides of the ratio rather than
  * counted as zero change, so they don't silently dilute the result. Returns
- * null if no asset has enough data to contribute.
+ * null if no holding has enough data to contribute.
  */
-export function calculateDailyChange(assets: Asset[], quotes: Record<string, PriceData>): DailyChange | null {
+export function calculateDailyChange(holdings: Holding[], quotes: Record<string, PriceData>): DailyChange | null {
   let deltaSum = 0;
   let baseSum = 0;
-  for (const a of assets) {
-    const prevClose = quotes[a.symbol]?.previousClose;
+  for (const h of holdings) {
+    const prevClose = quotes[h.symbol]?.previousClose;
     if (prevClose == null) continue;
-    deltaSum += a.quantity * (a.currentPrice - prevClose);
-    baseSum += a.quantity * prevClose;
+    deltaSum += h.quantity * (h.currentPrice - prevClose);
+    baseSum += h.quantity * prevClose;
   }
   if (baseSum <= 0) return null;
   return { amount: deltaSum, pct: (deltaSum / baseSum) * 100 };
 }
 
-export function calculatePortfolioStats(assets: Asset[]): PortfolioStats {
-  const totalInvested = assets.reduce((s, a) => s + a.avgBuyPrice * a.quantity, 0);
-  const currentValue = assets.reduce((s, a) => s + a.currentPrice * a.quantity, 0);
+/**
+ * Color for a live price figure based on today's movement vs. previousClose
+ * — green up, red down, neutral (--t1) when unchanged or when there's no
+ * previousClose to compare against (e.g. quote hasn't resolved yet). Shared
+ * so "does this price color mean the same thing" stays consistent everywhere
+ * a live price is shown (Portfolio's holdings table, the ticker detail view).
+ */
+export function priceChangeColor(currentPrice: number, previousClose: number | null | undefined): string {
+  if (previousClose == null || currentPrice === previousClose) return 'var(--t1)';
+  return currentPrice > previousClose ? 'var(--up)' : 'var(--dn)';
+}
+
+/** Same up/down/neutral basis as priceChangeColor, for the arrow indicator next to a live price. */
+export function priceChangeDirection(currentPrice: number, previousClose: number | null | undefined): 'up' | 'down' | 'neutral' {
+  if (previousClose == null || currentPrice === previousClose) return 'neutral';
+  return currentPrice > previousClose ? 'up' : 'down';
+}
+
+export function toHoldingStats(holding: Holding): HoldingStats {
+  const costBasisRemaining = holding.avgCost * holding.quantity;
+  const currentValue = holding.currentPrice * holding.quantity;
+  const unrealizedPnL = currentValue - costBasisRemaining;
+  const unrealizedPnLPct = costBasisRemaining > 0 ? (unrealizedPnL / costBasisRemaining) * 100 : 0;
+  return { ...holding, costBasisRemaining, currentValue, unrealizedPnL, unrealizedPnLPct };
+}
+
+export function calculatePortfolioStats(holdings: Holding[], totalDividends = 0): PortfolioStats {
+  const stats = holdings.map(toHoldingStats);
+  const totalInvested = stats.reduce((s, h) => s + h.costBasisRemaining, 0);
+  const currentValue = stats.reduce((s, h) => s + h.currentValue, 0);
   const profitLoss = currentValue - totalInvested;
   const roi = totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
-  const monthlyContribution = assets
-    .filter((a) => a.frequency.type !== 'one-time')
-    .reduce((s, a) => s + a.monthlyContribution, 0);
+  const totalRealizedPnL = holdings.reduce((s, h) => s + h.realizedPnL, 0);
 
-  const uniqueCurrencies = [...new Set(assets.map((a) => a.currency))];
+  const uniqueCurrencies = [...new Set(holdings.map((h) => h.currency))];
   const isMixedCurrency = uniqueCurrencies.length > 1;
 
   const currencyGroups = uniqueCurrencies.map((currency) => {
-    const group = assets.filter((a) => a.currency === currency);
-    const invested = group.reduce((s, a) => s + a.avgBuyPrice * a.quantity, 0);
-    const value = group.reduce((s, a) => s + a.currentPrice * a.quantity, 0);
+    const group = stats.filter((h) => h.currency === currency);
+    const invested = group.reduce((s, h) => s + h.costBasisRemaining, 0);
+    const value = group.reduce((s, h) => s + h.currentValue, 0);
     return { currency, invested, currentValue: value, profitLoss: value - invested };
   });
 
   return {
-    totalInvested, currentValue, profitLoss, roi, monthlyContribution,
+    totalInvested, currentValue, profitLoss, roi, totalRealizedPnL, totalDividends,
     currencies: uniqueCurrencies, isMixedCurrency, currencyGroups,
   };
 }
@@ -92,108 +117,6 @@ export function generateProjection(
   return data;
 }
 
-/** Next occurrence of `freq` strictly after `after`. Caller guarantees `freq.type !== 'one-time'`. */
-function nextOccurrence(freq: FrequencyConfig, after: Date): Date {
-  const { type, dayOfMonth = 1, weekday = 1, everyXMonths = 3 } = freq;
-
-  if (type === 'monthly') {
-    let d = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
-    if (d <= after) d = new Date(after.getFullYear(), after.getMonth() + 1, dayOfMonth);
-    return d;
-  }
-
-  if (type === 'quarterly' || type === 'every-x-months') {
-    const months = type === 'quarterly' ? 3 : everyXMonths;
-    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
-    while (candidate <= after) {
-      candidate = new Date(candidate.getFullYear(), candidate.getMonth() + months, dayOfMonth);
-    }
-    return candidate;
-  }
-
-  if (type === 'semi-annually') {
-    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
-    while (candidate <= after) {
-      candidate = new Date(candidate.getFullYear(), candidate.getMonth() + 6, dayOfMonth);
-    }
-    return candidate;
-  }
-
-  if (type === 'yearly') {
-    let candidate = new Date(after.getFullYear(), after.getMonth(), dayOfMonth);
-    while (candidate <= after) {
-      candidate = new Date(candidate.getFullYear() + 1, candidate.getMonth(), dayOfMonth);
-    }
-    return candidate;
-  }
-
-  if (type === 'weekly') {
-    const d = new Date(after);
-    d.setDate(d.getDate() + 1);
-    while (d.getDay() !== weekday) d.setDate(d.getDate() + 1);
-    return d;
-  }
-
-  // daily
-  const d = new Date(after);
-  d.setDate(d.getDate() + 1);
-  return d;
-}
-
-/**
- * Get the next deposit date for an asset based on its frequency config.
- * Chains from lastProcessedDate/startDate when set, so periodic types
- * (quarterly/semi-annually/yearly) stay phase-locked to when the recurring
- * investment actually started rather than re-phasing off "today". Falls
- * back to computing from today for legacy assets with no anchor.
- */
-export function getNextDepositDate(freq: FrequencyConfig): Date | null {
-  if (freq.type === 'one-time') return null;
-  const now = new Date();
-  const anchorStr = freq.lastProcessedDate ?? freq.startDate;
-  if (!anchorStr) return nextOccurrence(freq, now);
-
-  let next = nextOccurrence(freq, new Date(anchorStr));
-  while (next <= now) next = nextOccurrence(freq, next);
-  return next;
-}
-
-/**
- * All scheduled deposit dates strictly after `anchor` and up to (and
- * including) `now`, in chronological order. Capped at `max` so a very old
- * anchor date can't trigger an unbounded number of historical price fetches
- * in one pass — callers process the remainder on the next run.
- */
-export function getElapsedDeposits(
-  freq: FrequencyConfig,
-  anchor: Date,
-  now: Date = new Date(),
-  max = 24,
-): Date[] {
-  if (freq.type === 'one-time') return [];
-  const dates: Date[] = [];
-  let d = nextOccurrence(freq, anchor);
-  while (d <= now && dates.length < max) {
-    dates.push(d);
-    d = nextOccurrence(freq, d);
-  }
-  return dates;
-}
-
-export function frequencyLabel(freq: FrequencyConfig): string {
-  const labels: Record<string, string> = {
-    'one-time': 'חד פעמי',
-    'daily': 'יומי',
-    'weekly': 'שבועי',
-    'monthly': 'חודשי',
-    'every-x-months': `כל ${freq.everyXMonths ?? 2} חודשים`,
-    'quarterly': 'רבעוני',
-    'semi-annually': 'חצי שנתי',
-    'yearly': 'שנתי',
-  };
-  return labels[freq.type] ?? freq.type;
-}
-
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -220,6 +143,17 @@ export function fmtPrice(value: number, currency = 'USD'): string {
   return `${sym}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/**
+ * Friendly display precision for share quantities — average-cost math on
+ * amount-based buys/sells routinely produces long floats (e.g.
+ * 0.3874300549871461 from amount/price); this only affects what's rendered.
+ * Internal calculations always use the raw, full-precision number — never
+ * this formatted string.
+ */
+export function fmtQty(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 5 });
+}
+
 export function fmtPct(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 }
@@ -227,4 +161,16 @@ export function fmtPct(value: number): string {
 export function fmtDate(date: Date): string {
   const locale = document.documentElement.lang === 'en' ? 'en-US' : 'he-IL';
   return date.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** Short day-group header ("1 July") — no year, since it's meant for grouping a scrollable list, not standing alone. */
+export function fmtDayHeader(date: Date): string {
+  const locale = document.documentElement.lang === 'en' ? 'en-US' : 'he-IL';
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
+}
+
+/** HH:MM the transaction was actually recorded (from `createdAt`) — the tiebreaker for same-day ordering, so it's worth surfacing per-row. */
+export function fmtTime(isoTimestamp: string): string {
+  const locale = document.documentElement.lang === 'en' ? 'en-US' : 'he-IL';
+  return new Date(isoTimestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }

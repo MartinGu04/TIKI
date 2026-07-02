@@ -6,10 +6,10 @@ const FLASH_DURATION_MS = 500;
 
 /**
  * Tracks a numeric value and briefly returns 'up'/'down' right after it
- * changes, then back to null — for a restrained, color-only "just updated"
- * pulse (see .animate-flash-up/-down in index.css). Deliberately not a
- * counting/rolling-digit effect: the number itself never changes visually
- * beyond its own color tint, per the confirmed "no slot-machine" direction.
+ * changes, then back to null. Drives both the color flash
+ * (.animate-flash-up/-down) and the direction of the rolling-number
+ * transition (.animate-roll-up/-down) in index.css, so a live price tick
+ * flashes and rolls in the same direction it moved.
  */
 export function usePriceFlash(value: number): FlashDirection {
   const prevRef = useRef(value);

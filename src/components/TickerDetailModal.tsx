@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, Loader2, ArrowUp, ArrowDown, ArrowDownCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Asset, ChartPoint, ChartRange, PriceData } from '../types';
+import { Holding, ChartPoint, ChartRange, PriceData, Transaction } from '../types';
 import { getCurrentPrice, getChartRange } from '../services/marketData';
-import { fmtPrice, fmtPct, fmt, currencySymbol } from '../utils/calculations';
+import { fmtPrice, fmtPct, fmt, fmtDate, currencySymbol, priceChangeColor } from '../utils/calculations';
 import { formatMarketTiming } from '../utils/marketStatus';
 import { usePriceFlash } from '../hooks/usePriceFlash';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { compareTransactionsAsc } from '../utils/portfolioEngine';
 import { MarketStatusIcon } from './MarketStatusIcon';
 import { useT } from '../contexts/LanguageContext';
 import { Translations } from '../i18n';
 
 interface Props {
-  asset: Asset;
+  holding: Holding;
   onClose: () => void;
-  /** Already-fetched live quote (from the same useLivePrices call Home/Advanced already made) — avoids a duplicate fetch when available. */
+  /** Already-fetched live quote (from the same useLivePrices call Home/Portfolio already made) — avoids a duplicate fetch when available. */
   quote?: PriceData;
+  /** This holding's transactions, newest first, for the "Recent activity" section. */
+  transactions?: Transaction[];
+  /** Quick Sell — opens the transaction form in Sell mode for this holding. Only shown when the holding has shares to sell. */
+  onSell?: () => void;
 }
 
 // Ordered shortest-to-longest — laid out in each language's natural reading
@@ -39,8 +45,9 @@ function formatAxisPrice(v: number, currency: string): string {
   return `${currencySymbol(currency)}${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
-export function TickerDetailModal({ asset, onClose, quote }: Props) {
+export function TickerDetailModal({ holding, onClose, quote, transactions = [], onSell }: Props) {
   const t = useT();
+  useLockBodyScroll();
   const [price, setPrice] = useState<PriceData | null>(quote ?? null);
   const [priceLoading, setPriceLoading] = useState(!quote);
   const [priceError, setPriceError] = useState(false);
@@ -57,26 +64,26 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
     let alive = true;
     setPriceLoading(true);
     setPriceError(false);
-    getCurrentPrice(asset.symbol)
+    getCurrentPrice(holding.symbol)
       .then((p) => { if (alive) { setPrice(p); setPriceLoading(false); } })
       .catch(() => { if (alive) { setPriceError(true); setPriceLoading(false); } });
     return () => { alive = false; };
-  }, [asset.symbol, quote]);
+  }, [holding.symbol, quote]);
 
   useEffect(() => {
     let alive = true;
     setChartLoading(true);
     setChartError(false);
-    getChartRange(asset.symbol, range)
+    getChartRange(holding.symbol, range)
       .then((pts) => { if (alive) { setChartData(pts); setChartLoading(false); } })
       .catch(() => { if (alive) { setChartError(true); setChartLoading(false); } });
     return () => { alive = false; };
-  }, [asset.symbol, range]);
+  }, [holding.symbol, range]);
 
-  const currency = price?.currency ?? asset.currency;
-  const livePrice = price?.price ?? asset.currentPrice;
+  const currency = price?.currency ?? holding.currency;
+  const livePrice = price?.price ?? holding.currentPrice;
   const priceFlash = usePriceFlash(livePrice);
-  const exchange = price?.exchange ?? asset.exchange ?? null;
+  const exchange = price?.exchange ?? holding.exchange ?? null;
 
   // Today's change (independent of the selected chart range) — kept as a
   // small secondary readout since it answers a different question ("how did
@@ -93,8 +100,8 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
   const rangeChangePct = rangeBaseline ? (rangeChange! / rangeBaseline) * 100 : null;
   const isRangeUp = (rangeChange ?? 0) >= 0;
 
-  const holdingsValue = asset.quantity * livePrice;
-  const holdingsPnl = holdingsValue - asset.quantity * asset.avgBuyPrice;
+  const holdingsValue = holding.quantity * livePrice;
+  const holdingsPnl = holdingsValue - holding.quantity * holding.avgCost;
 
   const tooltipStyle = {
     backgroundColor: 'var(--modal)',
@@ -114,9 +121,9 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
       >
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold ticker" style={{ color: 'var(--t1)' }} dir="ltr">{asset.ticker}</h2>
+            <h2 className="text-sm font-bold ticker" style={{ color: 'var(--t1)' }} dir="ltr">{holding.ticker}</h2>
             <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--t3)' }}>
-              {asset.name}{exchange ? ` · ${exchange}` : ''}{currency ? ` · ${currency}` : ''}
+              {holding.name}{exchange ? ` · ${exchange}` : ''}{currency ? ` · ${currency}` : ''}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-xl transition-all hover:opacity-70 shrink-0"
@@ -126,48 +133,43 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
         </div>
 
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
-          {/* Current / live price */}
+          {/* Current / live price — reading-direction order: small caption
+              label, then the big price, then a "today" row beneath it. The
+              today row's own DOM order (label, value, arrow) is left to
+              mirror naturally per the page's dir, only the numeric chunk is
+              forced ltr. The selected-range change lives with the range
+              toggle below instead of competing here. */}
           <div>
+            <p className="text-xs" style={{ color: 'var(--t3)' }}>{t.liveMarketPrice}</p>
             {priceLoading ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <Loader2 size={14} className="animate-spin" style={{ color: 'var(--at)' }} />
                 <span className="text-xs" style={{ color: 'var(--t3)' }}>{t.fetchingPrice}</span>
               </div>
             ) : priceError ? (
-              <p className="text-xs" style={{ color: 'var(--dn)' }}>{t.couldNotConnect}</p>
+              <p className="text-xs mt-1.5" style={{ color: 'var(--dn)' }}>{t.couldNotConnect}</p>
             ) : (
-              <div className="flex items-center gap-3 flex-wrap">
+              <>
                 <span
-                  className={`text-3xl sm:text-4xl font-black tabular-nums ltr rounded-lg px-1 -mx-1 ${
+                  className={`block mt-1 text-3xl sm:text-4xl font-black tabular-nums ltr rounded-lg px-1 -mx-1 ${
                     priceFlash === 'up' ? 'animate-flash-up' : priceFlash === 'down' ? 'animate-flash-down' : ''
                   }`}
-                  style={{ color: 'var(--t1)' }}
+                  style={{ color: priceChangeColor(livePrice, previousClose) }}
                 >
                   {fmtPrice(livePrice, currency)}
                 </span>
-                {rangeChange !== null && rangeChangePct !== null && (
-                  <span
-                    className="flex items-center gap-1.5 flex-wrap text-sm font-semibold"
-                    style={{ color: isRangeUp ? 'var(--up)' : 'var(--dn)' }}
-                  >
-                    {isRangeUp ? <TrendingUp size={14} className="shrink-0" /> : <TrendingDown size={14} className="shrink-0" />}
-                    <span className="ltr">
-                      {isRangeUp ? '+' : ''}{fmtPrice(rangeChange, currency)} ({fmtPct(rangeChangePct)})
+                {dailyChange !== null && dailyChangePct !== null && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className="text-xs" style={{ color: 'var(--t3)' }}>{t.todayChange}</span>
+                    <span className="text-sm font-semibold ltr" style={{ color: isDailyUp ? 'var(--up)' : 'var(--dn)' }}>
+                      {isDailyUp ? '+' : ''}{fmtPrice(dailyChange, currency)} ({fmtPct(dailyChangePct)})
                     </span>
-                    <span className="opacity-70 font-medium">{rangeLabel(range, t)}</span>
-                  </span>
+                    {isDailyUp ? <ArrowUp size={13} className="shrink-0" style={{ color: 'var(--up)' }} />
+                      : <ArrowDown size={13} className="shrink-0" style={{ color: 'var(--dn)' }} />}
+                  </div>
                 )}
-              </div>
+              </>
             )}
-            {dailyChange !== null && dailyChangePct !== null && (
-              <div className="flex items-center justify-between gap-3 mt-2.5">
-                <span className="text-xs font-semibold" style={{ color: 'var(--t3)' }}>{t.todayChange}</span>
-                <span className="flex items-center gap-1 text-xs font-semibold ltr" style={{ color: isDailyUp ? 'var(--up)' : 'var(--dn)' }}>
-                  {isDailyUp ? '+' : ''}{fmtPrice(dailyChange, currency)} ({fmtPct(dailyChangePct)})
-                </span>
-              </div>
-            )}
-            <p className="text-xs mt-1.5" style={{ color: 'var(--t3)' }}>{t.liveMarketPrice}</p>
           </div>
 
           {/* Market info — status, exchange, timing. Three lines, strong
@@ -183,24 +185,36 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
             </div>
           )}
 
-          {/* Range toggle + chart */}
+          {/* Range toggle + chart — the secondary block: the selected-range
+              change lives here, next to the toggle that controls it, kept
+              small/muted so it reads as supporting detail, not a second
+              headline next to the price above. */}
           <div className="rounded-xl p-3 sm:p-4" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-              {RANGES.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r)}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={range === r
-                    ? { background: 'var(--a20)', border: '1px solid var(--a)', color: 'var(--at)' }
-                    : { background: 'var(--card)', border: '1px solid var(--input-b)', color: 'var(--t2)' }
-                  }
-                >
-                  {rangeLabel(r, t)}
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {RANGES.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={range === r
+                      ? { background: 'var(--a20)', border: '1px solid var(--a)', color: 'var(--at)' }
+                      : { background: 'var(--card)', border: '1px solid var(--input-b)', color: 'var(--t2)' }
+                    }
+                  >
+                    {rangeLabel(r, t)}
+                  </button>
+                ))}
+              </div>
+              {rangeChange !== null && rangeChangePct !== null && (
+                <span className="text-xs font-semibold ltr" style={{ color: isRangeUp ? 'var(--up)' : 'var(--dn)', opacity: 0.85 }}>
+                  {isRangeUp ? '+' : ''}{fmtPrice(rangeChange, currency)} ({fmtPct(rangeChangePct)})
+                </span>
+              )}
             </div>
-            <div style={{ height: 240 }}>
+            {/* Bled past the card's left padding on mobile only, so the plot
+                area uses more of the narrow modal's width. */}
+            <div className="-ml-3 sm:ml-0" style={{ height: 240 }}>
               {chartLoading ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <Loader2 size={18} className="animate-spin" style={{ color: 'var(--at)' }} />
@@ -211,7 +225,7 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 12, right: 16, bottom: 8, left: 4 }}>
+                  <AreaChart data={chartData} margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
                     <defs>
                       <linearGradient id="tickerChartGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--a)" stopOpacity={0.35} />
@@ -224,7 +238,7 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
                       interval="preserveStartEnd" minTickGap={44} padding={{ left: 12, right: 12 }} tickMargin={10} />
                     <YAxis stroke="transparent" tick={{ fill: 'var(--t3)', fontSize: 12 }}
                       tickFormatter={(v) => formatAxisPrice(v, currency)} tickLine={false} axisLine={false}
-                      width={52} domain={['auto', 'auto']} tickMargin={8} />
+                      width={44} domain={['auto', 'auto']} tickMargin={6} />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       labelStyle={{ color: 'var(--t3)', fontSize: 11, marginBottom: 4 }}
@@ -242,7 +256,19 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
 
           {/* Holdings impact — this popup is only opened from a held position */}
           <div className="rounded-xl p-4 sm:p-5" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
-            <p className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--t3)' }}>{t.yourHolding}</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--t3)' }}>{t.yourHolding}</p>
+              {onSell && holding.quantity > 0 && (
+                <button
+                  onClick={() => { onSell(); onClose(); }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                  style={{ color: 'var(--dn)', background: 'var(--dn10)', border: '1px solid rgba(239,68,68,0.3)' }}
+                >
+                  <ArrowDownCircle size={13} />
+                  {t.sellLabel}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs mb-1" style={{ color: 'var(--t3)' }}>{t.currentValue}</p>
@@ -258,6 +284,38 @@ export function TickerDetailModal({ asset, onClose, quote }: Props) {
               </div>
             </div>
           </div>
+
+          {/* Recent activity — this holding's own transactions, most recent first */}
+          {transactions.length > 0 && (
+            <div className="rounded-xl p-4 sm:p-5" style={{ background: 'var(--input)', border: '1px solid var(--border)' }}>
+              <p className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--t3)' }}>{t.recentActivity}</p>
+              <div className="space-y-2.5">
+                {[...transactions]
+                  .sort((a, b) => compareTransactionsAsc(b, a))
+                  .slice(0, 5)
+                  .map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={
+                            tx.type === 'buy' ? { color: 'var(--up)', background: 'var(--up10)' }
+                              : tx.type === 'sell' ? { color: 'var(--dn)', background: 'var(--dn10)' }
+                              : { color: 'var(--at)', background: 'var(--a10)' }
+                          }
+                        >
+                          {tx.type === 'buy' ? t.buyLabel : tx.type === 'sell' ? t.sellLabel : t.dividendLabel}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--t3)' }}>{fmtDate(new Date(tx.date + 'T00:00:00'))}</span>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums ltr" style={{ color: 'var(--t1)' }}>
+                        {fmtPrice(tx.amount, currency)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

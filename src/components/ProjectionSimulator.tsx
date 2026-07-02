@@ -10,8 +10,11 @@ export function ProjectionSimulator({ stats }: Props) {
   const t = useT();
   const [annualReturn, setAnnualReturn] = useState(8);
   const [years, setYears] = useState(10);
+  // Not derived from portfolio data (there's no recurring-contribution concept
+  // anymore) — a plain user-adjustable "what if I kept investing" input.
+  const [monthlyContribution, setMonthlyContribution] = useState(0);
 
-  const data = generateProjection(stats.currentValue, stats.monthlyContribution, annualReturn, years);
+  const data = generateProjection(stats.currentValue, monthlyContribution, annualReturn, years);
   const projected = data[data.length - 1]?.withContrib ?? stats.currentValue;
   const gain = projected - stats.currentValue;
   const multiplier = stats.currentValue > 0 ? projected / stats.currentValue : 1;
@@ -24,6 +27,18 @@ export function ProjectionSimulator({ stats }: Props) {
       </div>
 
       <div className="space-y-4">
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.assumedMonthlyContribution}</label>
+            <span className="text-[12px] font-semibold tabular-nums ltr" style={{ color: 'var(--at)' }}>{fmt(monthlyContribution)}</span>
+          </div>
+          <input type="range" min={0} max={5000} step={50} value={monthlyContribution}
+            onChange={(e) => setMonthlyContribution(Number(e.target.value))} />
+          <div className="flex justify-between text-[11px] mt-1 ltr" style={{ color: 'var(--t4)' }}>
+            <span>$0</span><span>$5,000</span>
+          </div>
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-[12px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</label>

@@ -1,40 +1,52 @@
-export type Owner = 'me' | 'partner' | 'shared';
-
-export type FrequencyType =
-  | 'one-time'
-  | 'daily'
-  | 'weekly'
-  | 'monthly'
-  | 'every-x-months'
-  | 'quarterly'
-  | 'semi-annually'
-  | 'yearly';
-
-export interface FrequencyConfig {
-  type: FrequencyType;
-  dayOfMonth?: number;   // 1–28, for monthly/quarterly/etc.
-  weekday?: number;      // 0 (Sun) – 6 (Sat), for weekly
-  everyXMonths?: number; // for every-x-months
-  startDate?: string;    // ISO yyyy-mm-dd, when the first deposit happens
-  /** ISO yyyy-mm-dd of the last recurring deposit already applied to quantity/avgBuyPrice. */
-  lastProcessedDate?: string;
+export interface Portfolio {
+  id: string;
+  userId: string;
+  name: string;
+  isDefault: boolean;
 }
 
-export interface Asset {
+// String union rather than a closed enum — adding a future type (Stock
+// Split, Cash Deposit, Fee, Interest, Transfer) is additive, not a rename.
+export type TransactionType = 'buy' | 'sell' | 'dividend';
+
+export interface Transaction {
   id: string;
+  holdingId: string;
+  type: TransactionType;
+  date: string;            // ISO yyyy-mm-dd — user-entered transaction date, no time component
+  /** DB-assigned insert timestamp — the tiebreaker for same-`date` ordering (real chronological order, since `date` alone can't distinguish two transactions entered the same day). */
+  createdAt?: string;
+  quantity: number | null; // null for dividend
+  price: number | null;    // null for dividend
+  amount: number;          // buy/sell: quantity*price; dividend: cash amount
+  note?: string;
+  /** Free-form bag for future transaction-type-specific fields (e.g. a split ratio) — never read by v1 logic. */
+  metadata?: Record<string, unknown>;
+}
+
+export interface Holding {
+  id: string;
+  portfolioId: string;
   ticker: string;     // display ticker, e.g. "CSPX"
   symbol: string;     // Yahoo Finance symbol, e.g. "CSPX.L"
   name: string;
-  owner: Owner;
-  avgBuyPrice: number;
-  quantity: number;
-  currentPrice: number;
-  currency: string;   // "USD", "GBP", "EUR", "ILS"
-  monthlyContribution: number; // always expressed in the asset's currency
-  frequency: FrequencyConfig;
+  currency: string;   // "USD", "GBP", "EUR", "ILS" — inferred from the asset, never user-configured
   color: string;
+  currentPrice: number;
   lastPriceUpdate?: number; // unix ms timestamp
   exchange?: string;  // display exchange, e.g. "LSE" — captured at search time
+  // Cached, derived from `transactions` — recomputed on every write via
+  // portfolioEngine.ts. Never hand-edited; transactions remain the source of truth.
+  quantity: number;
+  avgCost: number;
+  realizedPnL: number;
+}
+
+export interface HoldingStats extends Holding {
+  costBasisRemaining: number; // avgCost * quantity
+  currentValue: number;
+  unrealizedPnL: number;
+  unrealizedPnLPct: number;
 }
 
 export interface CurrencyGroup {
@@ -49,10 +61,11 @@ export interface PortfolioStats {
   currentValue: number;
   profitLoss: number;
   roi: number;
-  monthlyContribution: number;
+  totalRealizedPnL: number;
+  totalDividends: number;
   /** All distinct currencies in the portfolio */
   currencies: string[];
-  /** True when assets span more than one currency */
+  /** True when holdings span more than one currency */
   isMixedCurrency: boolean;
   /** Per-currency totals for display */
   currencyGroups: CurrencyGroup[];

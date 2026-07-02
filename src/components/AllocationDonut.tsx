@@ -1,20 +1,20 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Asset } from '../types';
+import { Holding } from '../types';
 import { fmt } from '../utils/calculations';
 import { useT } from '../contexts/LanguageContext';
 
-interface Props { assets: Asset[] }
+interface Props { holdings: Holding[] }
 
-export function AllocationDonut({ assets }: Props) {
+export function AllocationDonut({ holdings }: Props) {
   const t = useT();
 
-  const data = assets
-    .map((a) => ({
-      id: a.id,
-      name: a.ticker,
-      fullName: a.name,
-      value: Math.round(a.currentPrice * a.quantity * 100) / 100,
-      color: a.color,
+  const data = holdings
+    .map((h) => ({
+      id: h.id,
+      name: h.ticker,
+      fullName: h.name,
+      value: Math.round(h.currentPrice * h.quantity * 100) / 100,
+      color: h.color,
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -28,7 +28,7 @@ export function AllocationDonut({ assets }: Props) {
     boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
   };
 
-  if (assets.length === 0) {
+  if (holdings.length === 0) {
     return (
       <div className="rounded-2xl card flex items-center justify-center" style={{ minHeight: 340 }}>
         <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noInvestments}</p>

@@ -150,3 +150,118 @@ with a 403 whenever the row doesn't already exist. Run this once:
 create policy "Users can insert own profile"
   on public.profiles for insert with check (auth.uid() = id);
 ```
+
+## 8. TIKI v1: portfolios, holdings & transactions (2026-07-02)
+
+TIKI v1 replaces the flat `investments` table with a proper transaction ledger:
+one default `portfolio` per user, `holdings` (a cached, recomputed-on-every-write
+position per ticker), and `transactions` (buy/sell/dividend — the source of
+truth). Run this once in the SQL Editor. The old `investments` table and its
+`owner`/`recurrence_*`/`monthly_contribution` columns are left in place,
+unused, as a rollback safety net — do not drop them here.
+
+```sql
+create table public.portfolios (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null default 'My Portfolio',
+  is_default boolean not null default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create unique index one_default_portfolio_per_user
+  on public.portfolios(user_id) where is_default;
+
+create table public.holdings (
+  id uuid default gen_random_uuid() primary key,
+  portfolio_id uuid references public.portfolios(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  ticker text not null,
+  symbol text not null,
+  name text not null,
+  currency text not null default 'USD',
+  color text not null default '#6366f1',
+  current_price numeric not null default 0,
+  last_price_update timestamptz,
+  quantity numeric not null default 0,     -- cached, derived from transactions
+  avg_cost numeric not null default 0,     -- cached, derived from transactions
+  realized_pnl numeric not null default 0, -- cached, derived from transactions
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (portfolio_id, symbol)
+);
+
+-- `type` is plain text + CHECK (not a Postgres enum) and `metadata` is a free
+-- jsonb bag specifically so future transaction types (Stock Split, Cash
+-- Deposit, Fee, Interest, Transfer) can be added later without a schema
+-- redesign — just a new CHECK value and, if needed, new metadata keys.
+create table public.transactions (
+  id uuid default gen_random_uuid() primary key,
+  holding_id uuid references public.holdings(id) on delete cascade not null,
+  portfolio_id uuid references public.portfolios(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  type text not null check (type in ('buy','sell','dividend')),
+  date date not null,
+  quantity numeric,    -- null for dividend
+  price numeric,       -- null for dividend
+  amount numeric not null, -- buy/sell: quantity*price; dividend: cash amount
+  note text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index transactions_holding_idx on public.transactions(holding_id, date);
+create index transactions_portfolio_idx on public.transactions(portfolio_id, date desc);
+
+alter table public.app_settings
+  add column if not exists dividend_reminder boolean not null default false,
+  add column if not exists monthly_reminder boolean not null default false,
+  add column if not exists monthly_reminder_day integer default 1;
+
+alter table public.portfolios   enable row level security;
+alter table public.holdings     enable row level security;
+alter table public.transactions enable row level security;
+
+create policy "select own portfolios" on public.portfolios for select using (auth.uid() = user_id);
+create policy "insert own portfolios" on public.portfolios for insert with check (auth.uid() = user_id);
+create policy "update own portfolios" on public.portfolios for update using (auth.uid() = user_id);
+create policy "delete own portfolios" on public.portfolios for delete using (auth.uid() = user_id);
+
+create policy "select own holdings" on public.holdings for select using (auth.uid() = user_id);
+create policy "insert own holdings" on public.holdings for insert with check (auth.uid() = user_id);
+create policy "update own holdings" on public.holdings for update using (auth.uid() = user_id);
+create policy "delete own holdings" on public.holdings for delete using (auth.uid() = user_id);
+
+create policy "select own transactions" on public.transactions for select using (auth.uid() = user_id);
+create policy "insert own transactions" on public.transactions for insert with check (auth.uid() = user_id);
+create policy "update own transactions" on public.transactions for update using (auth.uid() = user_id);
+create policy "delete own transactions" on public.transactions for delete using (auth.uid() = user_id);
+
+-- Auto-create one default portfolio per new user, same pattern as handle_new_user.
+create or replace function public.handle_new_user_portfolio()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.portfolios (user_id, name, is_default) values (new.id, 'My Portfolio', true);
+  return new;
+end;
+$$;
+
+create trigger on_profile_created_portfolio
+  after insert on public.profiles
+  for each row execute procedure public.handle_new_user_portfolio();
+```
+
+### Verify
+
+Open the Table Editor and confirm `portfolios`, `holdings`, and `transactions`
+exist with RLS enabled (shield icon). Sign in once with a fresh account and
+confirm a `portfolios` row was auto-created for it.
+
+### One-time legacy data migration
+
+Existing `investments` rows are migrated client-side, automatically, the first
+time each signed-in user opens the app after this ships — see
+`src/utils/legacyMigration.ts`. No SQL step is required for this; it runs
+per-user on login and is idempotent (gated by a local flag so it never
+reruns). Each legacy `investments` row becomes one `holdings` row plus one
+synthetic `buy` transaction dated at the row's original `created_at`.

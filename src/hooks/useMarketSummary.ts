@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Asset, PriceData } from '../types';
+import { Holding, PriceData } from '../types';
 import { Translations } from '../i18n';
 import { useMarketExchanges } from './useMarketExchanges';
 
@@ -21,8 +21,8 @@ export interface MarketSummary {
  * Returns isOpen rather than a baked-in icon — presentation (the pulsing
  * dot vs. static icon) is the component's job, not this hook's.
  */
-export function useMarketSummary(assets: Asset[], quotes: Record<string, PriceData>, t: Translations): MarketSummary | null {
-  const exchanges = useMarketExchanges(assets, quotes);
+export function useMarketSummary(holdings: Holding[], quotes: Record<string, PriceData>, t: Translations): MarketSummary | null {
+  const exchanges = useMarketExchanges(holdings, quotes);
 
   return useMemo(() => {
     if (exchanges.length === 0) return null;

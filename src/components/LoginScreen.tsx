@@ -2,10 +2,6 @@ import { TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useT } from '../contexts/LanguageContext';
 
-interface Props {
-  onContinueLocal: () => void;
-}
-
 const GoogleIcon = () => (
   <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden>
     <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#fff" fillOpacity=".9"/>
@@ -15,7 +11,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export function LoginScreen({ onContinueLocal }: Props) {
+export function LoginScreen() {
   const { signInWithGoogle } = useAuth();
   const t = useT();
 
@@ -56,7 +52,7 @@ export function LoginScreen({ onContinueLocal }: Props) {
           {([
             [t.livePrices, t.livepricesSub],
             [t.futureProjection, t.futureProjectionSub],
-            [t.ownerTracking, t.ownerTrackingSub],
+            [t.transactionHistory, t.transactionHistorySub],
           ] as [string, string][]).map(([label, sub]) => (
             <div key={label} className="card rounded-xl p-3">
               <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--t1)' }}>{label}</p>
@@ -74,14 +70,6 @@ export function LoginScreen({ onContinueLocal }: Props) {
           >
             <GoogleIcon />
             {t.continueWithGoogle}
-          </button>
-
-          <button
-            onClick={onContinueLocal}
-            className="w-full py-3 text-sm font-medium rounded-2xl transition-all hover:opacity-80 card card-hover"
-            style={{ color: 'var(--t2)' }}
-          >
-            {t.continueWithoutAccount}
           </button>
         </div>
 

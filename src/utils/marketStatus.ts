@@ -1,5 +1,23 @@
-import { MarketStatus } from '../types';
+import { Holding, MarketStatus } from '../types';
 import { Translations } from '../i18n';
+
+/**
+ * Infers the user's primary market as the exchange held by the most
+ * distinct tickers in their portfolio (plurality, not portfolio-value
+ * weighted — a small high-value position shouldn't out-rank a market the
+ * user is more broadly invested in). Returns null with zero/ambiguous data
+ * rather than guessing. No manual override in v1 — Settings shows this
+ * read-only, per the "reduce unnecessary configuration" product decision.
+ */
+export function inferPrimaryMarket(holdings: Holding[]): string | null {
+  const counts = new Map<string, number>();
+  for (const h of holdings) {
+    if (!h.exchange) continue;
+    counts.set(h.exchange, (counts.get(h.exchange) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

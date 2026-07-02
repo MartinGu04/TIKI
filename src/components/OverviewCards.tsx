@@ -1,23 +1,18 @@
-import { DollarSign, TrendingUp, TrendingDown, Percent, Repeat } from 'lucide-react';
-import { PortfolioStats, Asset } from '../types';
-import { fmt, fmtPct, fmtDate, getNextDepositDate } from '../utils/calculations';
+import { DollarSign, TrendingUp, TrendingDown, Percent, Coins } from 'lucide-react';
+import { PortfolioStats, Holding } from '../types';
+import { fmt, fmtPct } from '../utils/calculations';
 import { useT } from '../contexts/LanguageContext';
 
 interface Props {
   stats: PortfolioStats;
-  assets: Asset[];
+  holdings: Holding[];
 }
 
-export function OverviewCards({ stats, assets }: Props) {
+export function OverviewCards({ stats, holdings }: Props) {
   const t = useT();
   const isProfit = stats.profitLoss >= 0;
   const isPositiveRoi = stats.roi >= 0;
-
-  const nextDates = assets
-    .map((a) => getNextDepositDate(a.frequency))
-    .filter((d): d is Date => d !== null)
-    .sort((a, b) => a.getTime() - b.getTime());
-  const nextDeposit = nextDates[0] ? fmtDate(nextDates[0]) : null;
+  const isRealizedProfit = stats.totalRealizedPnL >= 0;
 
   const cards = [
     {
@@ -25,7 +20,7 @@ export function OverviewCards({ stats, assets }: Props) {
       value: stats.isMixedCurrency
         ? stats.currencyGroups.map((g) => fmt(g.invested, g.currency)).join(' · ')
         : fmt(stats.totalInvested, stats.currencies[0]),
-      sub: t.positions(assets.length),
+      sub: t.positions(holdings.length),
       Icon: DollarSign,
       glow: 'rgba(99,102,241,0.12)',
       iconStyle: { color: 'var(--at)', background: 'var(--a10)' },
@@ -63,13 +58,13 @@ export function OverviewCards({ stats, assets }: Props) {
       valueColor: isPositiveRoi ? '#f59e0b' : 'var(--dn)',
     },
     {
-      label: t.monthlyContrib,
-      value: fmt(stats.monthlyContribution),
-      sub: nextDeposit ? `${t.nextDepositLabel} ${nextDeposit}` : t.noRecurring,
-      Icon: Repeat,
+      label: t.realizedAndDividends,
+      value: `${stats.totalRealizedPnL !== 0 ? `${isRealizedProfit ? '+' : ''}${fmt(stats.totalRealizedPnL)}` : fmt(0)}`,
+      sub: stats.totalDividends > 0 ? t.dividendsReceivedSub(fmt(stats.totalDividends)) : t.realizedPnlSub,
+      Icon: Coins,
       glow: 'rgba(6,182,212,0.12)',
       iconStyle: { color: '#22d3ee', background: 'rgba(6,182,212,0.10)' },
-      valueColor: 'var(--t1)',
+      valueColor: stats.totalRealizedPnL !== 0 ? (isRealizedProfit ? 'var(--up)' : 'var(--dn)') : 'var(--t1)',
     },
   ];
 

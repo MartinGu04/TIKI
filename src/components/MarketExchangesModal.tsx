@@ -3,6 +3,7 @@ import { MarketStatus } from '../types';
 import { formatMarketTiming } from '../utils/marketStatus';
 import { MarketStatusIcon } from './MarketStatusIcon';
 import { useT } from '../contexts/LanguageContext';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface Props {
   exchanges: MarketStatus[];
@@ -15,6 +16,7 @@ interface Props {
  * request. */
 export function MarketExchangesModal({ exchanges, onClose }: Props) {
   const t = useT();
+  useLockBodyScroll();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">

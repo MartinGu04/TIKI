@@ -12,8 +12,11 @@ export function ProjectionChart({ stats }: Props) {
   const t = useT();
   const [years, setYears] = useState(10);
   const [annualReturn, setAnnualReturn] = useState(8);
+  // Not derived from portfolio data (there's no recurring-contribution
+  // concept anymore) — a plain user-adjustable "what if" input.
+  const [monthlyContribution, setMonthlyContribution] = useState(0);
 
-  const data = generateProjection(stats.currentValue, stats.monthlyContribution, annualReturn, years);
+  const data = generateProjection(stats.currentValue, monthlyContribution, annualReturn, years);
   const finalValue = data[data.length - 1]?.withContrib ?? 0;
   const totalGain = finalValue - stats.currentValue;
   const multiplier = stats.currentValue > 0 ? finalValue / stats.currentValue : 1;
@@ -34,13 +37,21 @@ export function ProjectionChart({ stats }: Props) {
           <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.portfolioProjection}</h2>
           <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>
             {t.estimatedWith}{' '}
-            <span className="font-medium ltr" style={{ color: 'var(--at)' }}>{fmt(stats.monthlyContribution)}</span>
+            <span className="font-medium ltr" style={{ color: 'var(--at)' }}>{fmt(monthlyContribution)}</span>
             {t.perMonth}
           </p>
         </div>
 
         {/* Controls */}
         <div className="flex items-center gap-4 flex-wrap" dir="ltr">
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.assumedMonthlyContribution}</span>
+              <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--at)' }}>{fmt(monthlyContribution)}</span>
+            </div>
+            <input type="range" min={0} max={5000} step={50} value={monthlyContribution}
+              onChange={(e) => setMonthlyContribution(Number(e.target.value))} />
+          </div>
           <div className="flex flex-col gap-1 min-w-[110px]">
             <div className="flex items-center justify-between">
               <span className="text-[11px]" style={{ color: 'var(--t3)' }}>{t.annualReturn}</span>
@@ -76,8 +87,12 @@ export function ProjectionChart({ stats }: Props) {
         </div>
       </div>
 
+      {/* Bled past the card's horizontal padding on mobile only, so the plot
+          area uses more of the available screen width without cramping the
+          header/controls/legend text that stay at full padding. */}
+      <div className="-mx-4 sm:mx-0">
       <ResponsiveContainer width="100%" height={240}>
-        <AreaChart data={data} margin={{ top: 5, right: 4, bottom: 0, left: 8 }}>
+        <AreaChart data={data} margin={{ top: 5, right: 4, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="gradWith" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--a)" stopOpacity={0.35} />
@@ -106,6 +121,7 @@ export function ProjectionChart({ stats }: Props) {
             fill="url(#gradWith)" dot={false} />
         </AreaChart>
       </ResponsiveContainer>
+      </div>
 
       <div className="flex items-center gap-5 mt-3">
         <div className="flex items-center gap-2">

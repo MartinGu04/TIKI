@@ -1,45 +1,42 @@
-import { Home, LayoutDashboard, Plus } from 'lucide-react';
+import { Home, Wallet, History, Settings, Plus } from 'lucide-react';
 import { useT } from '../contexts/LanguageContext';
 import type { View } from '../types/view';
 
 interface Props {
   view: View;
   onViewChange: (v: View) => void;
-  onAddAsset: () => void;
+  onAddTransaction: () => void;
 }
 
-export function BottomNav({ view, onViewChange, onAddAsset }: Props) {
+export function BottomNav({ view, onViewChange, onAddTransaction }: Props) {
   const t = useT();
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 sm:hidden backdrop-blur-xl border-t"
+      className="fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t"
       style={{ background: 'var(--hdr)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex items-center justify-around h-16 px-4">
-        <NavItem
-          icon={<Home size={20} />}
-          label={t.home}
-          active={view === 'home'}
-          onClick={() => onViewChange('home')}
-        />
-
-        {/* Center FAB */}
-        <button
-          onClick={onAddAsset}
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-90"
-          style={{ background: 'var(--a)', boxShadow: '0 4px 16px var(--a20)' }}
-        >
-          <Plus size={22} strokeWidth={2.5} />
-        </button>
-
-        <NavItem
-          icon={<LayoutDashboard size={20} />}
-          label={t.advanced}
-          active={view === 'advanced'}
-          onClick={() => onViewChange('advanced')}
-        />
+      {/* The 4 real tabs — evenly spaced, no 5th slot for Add. A blank spacer
+          the FAB's own width keeps History/Settings from drifting toward
+          center once the middle "seat" isn't a nav item anymore. */}
+      <div className="flex items-center justify-around max-w-[640px] mx-auto h-16 px-2">
+        <NavItem icon={<Home size={20} />} label={t.home} active={view === 'home'} onClick={() => onViewChange('home')} />
+        <NavItem icon={<Wallet size={20} />} label={t.portfolio} active={view === 'portfolio'} onClick={() => onViewChange('portfolio')} />
+        <div className="w-12 shrink-0" aria-hidden />
+        <NavItem icon={<History size={20} />} label={t.history} active={view === 'history'} onClick={() => onViewChange('history')} />
+        <NavItem icon={<Settings size={20} />} label={t.settings} active={view === 'settings'} onClick={() => onViewChange('settings')} />
       </div>
+
+      {/* Floating Add action — visually detached from the tab row (raised
+          above the bar, its own shadow/size), so it reads as an action, not
+          a 5th tab. */}
+      <button
+        onClick={onAddTransaction}
+        className="absolute left-1/2 -translate-x-1/2 -top-6 w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-90"
+        style={{ background: 'var(--a)', boxShadow: '0 6px 20px var(--a20), 0 2px 8px rgba(0,0,0,0.25)', border: '3px solid var(--bg)' }}
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
     </nav>
   );
 }
@@ -50,7 +47,7 @@ function NavItem({ icon, label, active, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all"
+      className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all"
       style={{ color: active ? 'var(--a)' : 'var(--t3)' }}
     >
       {icon}
