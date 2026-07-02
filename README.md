@@ -4,17 +4,42 @@ A clean, bilingual (Hebrew/English) investment portfolio tracker built for coupl
 
 ---
 
+## Current Development Status
+
+**Status: v1.0.0 — stable.** TIKI has completed its v1 milestone: a full rewrite
+from a single-holding snapshot tracker into a proper transaction-ledger
+portfolio app (buy/sell/dividend entries, average-cost P&L, live prices,
+CSV/JSON import-export, bilingual RTL/LTR UI). See
+**[CHANGELOG.md](./CHANGELOG.md)** for the complete v1.0.0 summary and
+everything planned next.
+
+This project follows [Semantic Versioning](https://semver.org/) — breaking
+changes bump the major version, new backwards-compatible features bump the
+minor version, and fixes bump the patch version.
+
+---
+
 ## Features
 
-- **Portfolio overview** — current value, unrealized P&L, ROI, monthly contribution
-- **Multi-currency** — USD, ILS, EUR per investment; mixed portfolios show per-currency breakdowns, never a fake combined total
-- **Recurring investments** — one-time, weekly, monthly, quarterly, semi-annual, yearly, or every-X-months schedules with upcoming deposit calendar
-- **Projection chart** — compound-growth simulator with adjustable annual return and time horizon
-- **Google authentication** — sign in with Google via Supabase; cloud sync across devices
-- **Demo / local mode** — works fully offline with LocalStorage, no account required
-- **Migration prompt** — when you sign in for the first time, optionally save existing local data to your account
-- **Hebrew + English** — full RTL/LTR switching; locale-aware date and number formatting
-- **Three themes** — dark (default), light, and a secret Mamish mode (5 rapid taps on the theme button)
+- **Transaction ledger** — buy, sell, and dividend entries with average-cost
+  basis and realized/unrealized P&L (not a lot-tracking system)
+- **Portfolio overview** — current value, unrealized P&L, ROI, live price
+  freshness and manual refresh
+- **Multi-currency** — USD, ILS, EUR, GBP, and more per holding; mixed
+  portfolios show per-currency breakdowns, never a fake combined total
+- **Projection chart** — compound-growth simulator with adjustable annual
+  return and time horizon
+- **CSV / JSON import-export** — of holdings and transaction history
+- **Google authentication (required)** — sign in with Google via Supabase;
+  data syncs across devices under your account. There is no offline/no-account
+  mode in v1
+- **Legacy data migration** — early users' single-holding data is migrated
+  into the transaction ledger automatically on first sign-in
+- **Reminders** — opt-in dividend and monthly-contribution banners
+- **Hebrew + English** — full RTL/LTR switching; locale-aware date and number
+  formatting
+- **Three themes** — dark (default), light, and a secret Mamish mode (5 rapid
+  taps on the theme button)
 - **PWA-ready** — installable, favicon, web manifest
 
 ---
@@ -38,7 +63,9 @@ A clean, bilingual (Hebrew/English) investment portfolio tracker built for coupl
 ### Prerequisites
 
 - Node.js 18+
-- A Supabase project (optional — the app works without one in demo mode)
+- A Supabase project — **required**. TIKI has no offline/local-only mode; the
+  app shows a "not configured" screen until `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` are set
 
 ### Setup
 
@@ -50,17 +77,15 @@ cd TIKI
 # 2. Install dependencies
 npm install
 
-# 3. Configure environment (optional — skip for demo/local mode)
+# 3. Configure environment (required)
 cp .env.example .env.local
-# Edit .env.local and fill in your Supabase URL and anon key
+# Edit .env.local and fill in your Supabase URL and anon key — see Supabase Setup below
 
 # 4. Start development server
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
-
-Without `.env.local`, the app runs entirely in LocalStorage mode — no login screen, no cloud sync.
 
 ---
 
@@ -70,7 +95,7 @@ See **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** for the complete guide:
 
 - Creating a Supabase project
 - Enabling Google OAuth
-- Running the SQL schema (`profiles`, `investments`, `app_settings` tables)
+- Running the SQL schema (`profiles`, `portfolios`, `holdings`, `transactions`, `app_settings` tables)
 - Row Level Security policies
 
 ---
@@ -84,7 +109,8 @@ See **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** for the complete guide:
 
 Copy `.env.example` to `.env.local` and fill in the values. **Never commit `.env.local`.**
 
-Both variables are optional. Without them the app runs in demo mode with no authentication.
+Both variables are **required**. Without them, `AuthGate` blocks the app with a
+"not configured" message instead of rendering the login screen.
 
 ---
 
@@ -121,15 +147,18 @@ No server required. This is a fully static SPA.
 
 ```
 src/
-  components/     UI components (Header, AssetModal, charts, etc.)
-  contexts/       React contexts (Auth, Theme, Language)
-  hooks/          useLocalStorage
+  components/     UI components — Header, BottomNav, HoldingsList,
+                  TransactionModal, TickerDetailModal, charts, etc.
+                  components/ui/ holds shared primitives (Sheet, EmptyState,
+                  Skeleton, Toast, ConfirmSheet)
+  contexts/       React contexts — Auth, Theme, Language, Toast
+  hooks/          useLivePrices, usePriceFlash, useLockBodyScroll, etc.
   i18n/           Hebrew + English translations
   lib/            Supabase client
-  pages/          HomePage, AdvancedPage
-  services/       storageService (LocalStorage + Supabase), marketData
+  pages/          HomePage, PortfolioPage, HistoryPage, SettingsPage
+  services/       storageService (Supabase), marketData, import/exportService
   types/          TypeScript types
-  utils/          calculations, formatting
+  utils/          calculations, portfolioEngine, legacyMigration, reminders
 public/
   favicon.svg
   site.webmanifest
@@ -139,6 +168,6 @@ public/
 
 ## Data Privacy
 
-- **Local mode**: all data stays on-device in `localStorage`. Nothing leaves the browser.
-- **Cloud mode**: data is stored in your own Supabase project under your account. Row Level Security ensures each user can only access their own data.
+- All portfolio data is stored in your own Supabase project under your Google
+  account. Row Level Security ensures each user can only access their own data.
 - No analytics, no tracking, no third-party data sharing.
