@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Holding, SearchResult, Transaction, TransactionType } from '../types';
 import { searchTicker, getCurrentPrice } from '../services/marketData';
@@ -617,10 +618,14 @@ export function TransactionModal({ mode, holdings, transaction, preselectedHoldi
   const editedHolding = mode === 'edit' && transaction ? holdings.find((h) => h.id === transaction.holdingId) : undefined;
   const title = mode === 'edit'
     ? (editedHolding ? t.editTransactionFor(editedHolding.ticker) : t.editTransaction)
-    : t.addTransactionTitle;
+    : step === 2 && s1.selected
+      ? (s2.txType === 'buy' ? t.buyTransactionTitle(s1.selected.ticker)
+         : s2.txType === 'sell' ? t.sellTransactionTitle(s1.selected.ticker)
+         : t.dividendTransactionTitle(s1.selected.ticker))
+      : t.addTransactionTitle;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-50 isolate flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div
         className="relative z-10 w-full max-w-[480px] rounded-2xl overflow-hidden shadow-2xl animate-scale-in max-h-[90vh] flex flex-col"
@@ -666,7 +671,8 @@ export function TransactionModal({ mode, holdings, transaction, preselectedHoldi
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

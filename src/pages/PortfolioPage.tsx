@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Plus } from 'lucide-react';
-import { Holding, PortfolioStats, PriceData } from '../types';
+import { Holding, PortfolioStats, PriceData, Transaction } from '../types';
 import { OverviewCards } from '../components/OverviewCards';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { AllocationDonut } from '../components/AllocationDonut';
@@ -11,14 +11,21 @@ import { useT } from '../contexts/LanguageContext';
 
 interface Props {
   holdings: Holding[];
+  transactions: Transaction[];
   stats: PortfolioStats;
   onAddTransaction: (holding?: Holding) => void;
   onDeleteHolding: (id: string) => void;
   onQuickSell: (holding: Holding) => void;
   livePrices: Record<string, PriceData>;
+  pricesLastUpdated: number | null;
+  pricesRefreshing: boolean;
+  onRefreshPrices: () => void;
 }
 
-export function PortfolioPage({ holdings, stats, onAddTransaction, onDeleteHolding, onQuickSell, livePrices }: Props) {
+export function PortfolioPage({
+  holdings, transactions, stats, onAddTransaction, onDeleteHolding, onQuickSell, livePrices,
+  pricesLastUpdated, pricesRefreshing, onRefreshPrices,
+}: Props) {
   const t = useT();
   const [query, setQuery] = useState('');
 
@@ -76,10 +83,16 @@ export function PortfolioPage({ holdings, stats, onAddTransaction, onDeleteHoldi
           </div>
           <HoldingsList
             holdings={filtered}
+            transactions={transactions}
             onAddTransaction={onAddTransaction}
             onDeleteHolding={onDeleteHolding}
             onQuickSell={onQuickSell}
             livePrices={livePrices}
+            searchQuery={query}
+            onClearSearch={() => setQuery('')}
+            pricesLastUpdated={pricesLastUpdated}
+            pricesRefreshing={pricesRefreshing}
+            onRefreshPrices={onRefreshPrices}
           />
         </div>
         <div className="space-y-5">

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { MarketStatus } from '../types';
 import { formatMarketTiming } from '../utils/marketStatus';
@@ -18,8 +19,8 @@ export function MarketExchangesModal({ exchanges, onClose }: Props) {
   const t = useT();
   useLockBodyScroll();
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-50 isolate flex items-center justify-center p-2 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div
         className="relative z-10 w-full max-w-[420px] rounded-2xl overflow-hidden shadow-2xl animate-scale-in max-h-[90vh] flex flex-col"
@@ -49,6 +50,7 @@ export function MarketExchangesModal({ exchanges, onClose }: Props) {
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

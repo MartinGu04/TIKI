@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, ArrowUp, ArrowDown, ArrowDownCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Holding, ChartPoint, ChartRange, PriceData, Transaction } from '../types';
@@ -9,6 +10,7 @@ import { usePriceFlash } from '../hooks/usePriceFlash';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { compareTransactionsAsc } from '../utils/portfolioEngine';
 import { MarketStatusIcon } from './MarketStatusIcon';
+import { SkeletonCard } from './ui/Skeleton';
 import { useT } from '../contexts/LanguageContext';
 import { Translations } from '../i18n';
 
@@ -112,8 +114,8 @@ export function TickerDetailModal({ holding, onClose, quote, transactions = [], 
     direction: 'ltr' as const,
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-50 isolate flex items-center justify-center p-2 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div
         className="relative z-10 w-full max-w-[480px] sm:max-w-[520px] rounded-2xl overflow-hidden shadow-2xl animate-scale-in max-h-[92vh] flex flex-col"
@@ -216,9 +218,7 @@ export function TickerDetailModal({ holding, onClose, quote, transactions = [], 
                 area uses more of the narrow modal's width. */}
             <div className="-ml-3 sm:ml-0" style={{ height: 240 }}>
               {chartLoading ? (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Loader2 size={18} className="animate-spin" style={{ color: 'var(--at)' }} />
-                </div>
+                <SkeletonCard height="240px" />
               ) : chartError || !chartData || chartData.length === 0 ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <p className="text-xs" style={{ color: 'var(--t3)' }}>{t.couldNotFetchHistory}</p>
@@ -318,6 +318,7 @@ export function TickerDetailModal({ holding, onClose, quote, transactions = [], 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

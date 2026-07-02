@@ -147,7 +147,7 @@ function TikiApp({ userId }: { userId: string }) {
   // written back to storage. Supabase stays the source of truth for owned
   // data (symbol, quantity, avg cost, transactions); this just keeps
   // displayed value/ROI/change figures live.
-  const { quotes: livePrices, staleSymbols } = useLivePrices(activeHoldings);
+  const { quotes: livePrices, staleSymbols, lastUpdated: pricesLastUpdated, refreshing: pricesRefreshing, refresh: refreshPrices } = useLivePrices(activeHoldings);
   const displayHoldings = overlayLivePrices(activeHoldings, livePrices);
   const totalDividends = sumDividends(transactions);
   const stats = calculatePortfolioStats(displayHoldings, totalDividends);
@@ -334,10 +334,11 @@ function TikiApp({ userId }: { userId: string }) {
         )}
         {view === 'portfolio' && (
           <PortfolioPage
-            holdings={displayHoldings} stats={stats}
+            holdings={displayHoldings} transactions={transactions} stats={stats}
             onAddTransaction={openAddTransaction} onDeleteHolding={handleDeleteHolding}
             onQuickSell={(h) => openAddTransaction(h, 'sell')}
             livePrices={livePrices}
+            pricesLastUpdated={pricesLastUpdated} pricesRefreshing={pricesRefreshing} onRefreshPrices={refreshPrices}
           />
         )}
         {view === 'history' && (

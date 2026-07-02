@@ -1,4 +1,5 @@
 import { Holding, HoldingStats, PortfolioStats, ProjectionPoint, PriceData } from '../types';
+import { Translations } from '../i18n';
 
 /**
  * Returns a new array with each holding's currentPrice replaced by its live
@@ -173,4 +174,18 @@ export function fmtDayHeader(date: Date): string {
 export function fmtTime(isoTimestamp: string): string {
   const locale = document.documentElement.lang === 'en' ? 'en-US' : 'he-IL';
   return new Date(isoTimestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * "Last updated" freshness label for a live-price poll — relative for the
+ * first couple of minutes, then falls back to a clock time so it doesn't
+ * read as a stale countdown. Bucketed rather than exact-second so it only
+ * changes a few times a minute, matching the quiet-UI ticking cadence.
+ */
+export function fmtRelativeTime(sinceMs: number, nowMs: number, t: Translations): string {
+  const diffSec = Math.max(0, Math.floor((nowMs - sinceMs) / 1000));
+  if (diffSec < 5) return t.updatedJustNow;
+  if (diffSec < 60) return t.updatedSecondsAgo(diffSec);
+  if (diffSec < 120) return t.updatedMinutesAgo(1);
+  return t.updatedAtTime(fmtTime(new Date(sinceMs).toISOString()));
 }

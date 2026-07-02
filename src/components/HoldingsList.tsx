@@ -1,30 +1,48 @@
-import { useState } from 'react';
-import { Plus, Trash2, ChevronUp, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { Holding, HoldingStats, PriceData } from '../types';
-import { fmt, fmtPrice, fmtPct, fmtQty, toHoldingStats, priceChangeColor, priceChangeDirection } from '../utils/calculations';
+import { useEffect, useState } from 'react';
+import { Plus, Trash2, ChevronUp, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Search } from 'lucide-react';
+import { Holding, HoldingStats, PriceData, Transaction } from '../types';
+import { fmt, fmtPrice, fmtPct, fmtQty, fmtRelativeTime, toHoldingStats, priceChangeColor, priceChangeDirection } from '../utils/calculations';
 import { useT, useLang } from '../contexts/LanguageContext';
 import { usePriceFlash } from '../hooks/usePriceFlash';
 import { TickerDetailModal } from './TickerDetailModal';
 import { ConfirmSheet } from './ui/ConfirmSheet';
+import { EmptyState } from './ui/EmptyState';
 
 interface Props {
   holdings: Holding[];
+  transactions: Transaction[];
   onAddTransaction: (holding: Holding) => void;
   onDeleteHolding: (id: string) => void;
   onQuickSell: (holding: Holding) => void;
   livePrices: Record<string, PriceData>;
+  searchQuery?: string;
+  onClearSearch?: () => void;
+  pricesLastUpdated: number | null;
+  pricesRefreshing: boolean;
+  onRefreshPrices: () => void;
 }
 
 type SortKey = 'value' | 'pnl' | 'ticker';
 type SortDir = 'asc' | 'desc';
 
-export function HoldingsList({ holdings, onAddTransaction, onDeleteHolding, onQuickSell, livePrices }: Props) {
+export function HoldingsList({
+  holdings, transactions, onAddTransaction, onDeleteHolding, onQuickSell, livePrices,
+  searchQuery, onClearSearch, pricesLastUpdated, pricesRefreshing, onRefreshPrices,
+}: Props) {
   const t = useT();
   const { dir } = useLang();
   const [sortKey, setSortKey] = useState<SortKey>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [confirmDelete, setConfirmDelete] = useState<Holding | null>(null);
   const [detailHolding, setDetailHolding] = useState<Holding | null>(null);
+
+  // Re-renders every 5s purely so the "Updated Ns ago" label keeps ticking
+  // forward between price polls — the tick value itself is never read.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -53,11 +71,30 @@ export function HoldingsList({ holdings, onAddTransaction, onDeleteHolding, onQu
         : <ChevronUp size={11} style={{ color: 'var(--at)' }} />
       : null;
 
+  const freshnessLabel = pricesRefreshing
+    ? t.refreshingPrices
+    : pricesLastUpdated !== null
+      ? fmtRelativeTime(pricesLastUpdated, Date.now(), t)
+      : null;
+
   return (
     <div className="rounded-2xl card overflow-hidden">
-      <div className="px-6 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-        <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.myInvestments}</h2>
-        <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.positions(holdings.length)}</p>
+      <div className="px-6 py-5 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t.myInvestments}</h2>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--t3)' }}>{t.positions(holdings.length)}</p>
+        </div>
+        {freshnessLabel && (
+          <button
+            onClick={onRefreshPrices}
+            disabled={pricesRefreshing}
+            className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-70 disabled:cursor-default"
+            style={{ color: 'var(--t3)' }}
+          >
+            <RefreshCw size={11} className={pricesRefreshing ? 'animate-spin' : ''} />
+            <span key={freshnessLabel} className="animate-fade-in">{freshnessLabel}</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -111,15 +148,26 @@ export function HoldingsList({ holdings, onAddTransaction, onDeleteHolding, onQu
         </table>
 
         {holdings.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noInvestments}</p>
-          </div>
+          searchQuery ? (
+            <EmptyState
+              variant="inline"
+              icon={<Search size={22} style={{ color: 'var(--at)' }} />}
+              title={t.noSearchResultsTitle(searchQuery)}
+              body={t.noSearchResultsBody}
+              cta={onClearSearch ? { label: t.clearSearch, onClick: onClearSearch } : undefined}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-sm" style={{ color: 'var(--t3)' }}>{t.noInvestments}</p>
+            </div>
+          )
         )}
       </div>
 
       {detailHolding && (
         <TickerDetailModal
           holding={detailHolding} onClose={() => setDetailHolding(null)} quote={livePrices[detailHolding.symbol]}
+          transactions={transactions.filter((tx) => tx.holdingId === detailHolding.id)}
           onSell={() => onQuickSell(detailHolding)}
         />
       )}
@@ -149,7 +197,9 @@ function HoldingRow({ h, livePrices, onOpenDetail, onAddTransaction, onDeleteReq
 
   return (
     <tr
-      className="group transition-colors"
+      className={`group transition-colors ${
+        priceFlash === 'up' ? 'animate-row-flash-up' : priceFlash === 'down' ? 'animate-row-flash-down' : ''
+      }`}
       style={{ borderBottom: '1px solid var(--border)' }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--card-h)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -178,9 +228,7 @@ function HoldingRow({ h, livePrices, onOpenDetail, onAddTransaction, onDeleteReq
               {direction === 'up' && <ArrowUp size={11} className="shrink-0" style={{ color }} />}
               {direction === 'down' && <ArrowDown size={11} className="shrink-0" style={{ color }} />}
               <span
-                className={`inline-block overflow-hidden align-middle rounded px-1 -mx-1 ${
-                  priceFlash === 'up' ? 'animate-flash-up' : priceFlash === 'down' ? 'animate-flash-down' : ''
-                }`}
+                className="inline-block overflow-hidden align-middle"
                 style={{ height: '1.15em', lineHeight: '1.15em' }}
               >
                 <span

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Holding, PriceData } from '../types';
 import { getCurrentPrice } from '../services/marketData';
 
@@ -7,6 +7,12 @@ export interface LivePrices {
   quotes: Record<string, PriceData>;
   /** Symbols whose live fetch failed this pass — displays should fall back to the asset's stored currentPrice. */
   staleSymbols: Set<string>;
+  /** Date.now() when the last poll (auto or manual) settled — null before the first one resolves. */
+  lastUpdated: number | null;
+  /** True while a fetch (auto or manual) is in flight. */
+  refreshing: boolean;
+  /** Manually trigger an immediate refresh, e.g. from a "last updated" tap target. */
+  refresh: () => void;
 }
 
 const REFRESH_INTERVAL_MS = 60_000;
@@ -21,20 +27,26 @@ const REFRESH_INTERVAL_MS = 60_000;
  * Refresh strategy (v1): fetches on mount and whenever the held symbol set
  * changes, then polls every 60s while the tab is visible, and immediately
  * refreshes when the tab regains visibility (e.g. after being backgrounded
- * for a while) — no refresh on tab/view change within the app itself (all
- * views share this one App-level fetch) and no manual refresh action yet.
+ * for a while). `refresh()` exposes the same fetch for a manual trigger
+ * (e.g. tapping the "last updated" label) — it doesn't reset the 60s
+ * interval, it just does one extra pass; cheap since `marketData.ts`
+ * already caches each symbol for 5 minutes upstream.
  */
 export function useLivePrices(holdings: Holding[]): LivePrices {
   const symbols = [...new Set(holdings.map((h) => h.symbol))].sort();
   const symbolsKey = symbols.join(',');
 
-  const [state, setState] = useState<LivePrices>({ quotes: {}, staleSymbols: new Set() });
+  const [state, setState] = useState<Omit<LivePrices, 'refresh'>>({
+    quotes: {}, staleSymbols: new Set(), lastUpdated: null, refreshing: false,
+  });
+  const refreshRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (symbols.length === 0) { setState({ quotes: {}, staleSymbols: new Set() }); return; }
+    if (symbols.length === 0) { setState({ quotes: {}, staleSymbols: new Set(), lastUpdated: null, refreshing: false }); return; }
     let alive = true;
 
     const refresh = () => {
+      setState((prev) => ({ ...prev, refreshing: true }));
       Promise.allSettled(symbols.map((s) => getCurrentPrice(s))).then((results) => {
         if (!alive) return;
         const quotes: Record<string, PriceData> = {};
@@ -43,9 +55,10 @@ export function useLivePrices(holdings: Holding[]): LivePrices {
           if (r.status === 'fulfilled') quotes[symbols[i]] = r.value;
           else staleSymbols.add(symbols[i]);
         });
-        setState({ quotes, staleSymbols });
+        setState({ quotes, staleSymbols, lastUpdated: Date.now(), refreshing: false });
       });
     };
+    refreshRef.current = refresh;
 
     refresh();
     const interval = setInterval(() => {
@@ -62,5 +75,7 @@ export function useLivePrices(holdings: Holding[]): LivePrices {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbolsKey]);
 
-  return state;
+  const refresh = useCallback(() => refreshRef.current(), []);
+
+  return { ...state, refresh };
 }

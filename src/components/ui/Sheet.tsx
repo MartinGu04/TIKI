@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll';
 
 interface Props {
@@ -20,8 +21,8 @@ export function Sheet({ open, onClose, title, children, maxWidth = 'max-w-sm' }:
   useLockBodyScroll(open);
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-50 isolate flex items-end sm:items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
         className={`relative z-10 w-full ${maxWidth} rounded-3xl p-6 animate-scale-in max-h-[90vh] overflow-y-auto`}
@@ -39,6 +40,7 @@ export function Sheet({ open, onClose, title, children, maxWidth = 'max-w-sm' }:
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

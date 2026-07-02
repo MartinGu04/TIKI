@@ -71,6 +71,7 @@ export function HistoryPage({ transactions, holdings, onEditTransaction, onDelet
           variant="inline"
           icon={<HistoryIcon size={22} style={{ color: 'var(--at)' }} />}
           title={filter === 'dividend' ? t.noDividendsYet : t.noTransactionsYet}
+          body={filter === 'dividend' ? t.noDividendsYetBody : t.noTransactionsYetBody}
           cta={filter === 'dividend'
             ? { label: t.addDividendBtn, onClick: onAddDividend }
             : { label: t.addTransactionTitle, onClick: onAddTransaction }}
