@@ -5,7 +5,7 @@
 // which resolves extensionless specifiers automatically). TypeScript's
 // NodeNext-style convention maps this .js specifier back to yahoo.ts for
 // type-checking while leaving it as .js in the emitted JS.
-import { searchYahoo, getQuote, getHistoricalClose, getChartRange, getHistoricalDiagnostics, type ChartRange } from './lib/yahoo.js';
+import { searchYahoo, getQuote, getHistoricalClose, getChartRange, type ChartRange } from './lib/yahoo.js';
 
 const VALID_CHART_RANGES: ChartRange[] = ['1w', '1mo', '3mo', '1y'];
 
@@ -73,15 +73,6 @@ export default async function handler(req: Req, res: Res) {
       }
       const points = await getChartRange(symbol, range);
       res.status(200).json({ points });
-      return;
-    }
-
-    if (action === 'diagnose') {
-      const symbol = param(req, 'symbol');
-      const date = param(req, 'date');
-      if (!symbol || !date) { res.status(400).json({ error: 'symbol and date are required' }); return; }
-      const diagnostics = await getHistoricalDiagnostics(symbol, date);
-      res.status(200).json(diagnostics);
       return;
     }
 

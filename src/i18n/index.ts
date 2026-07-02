@@ -299,7 +299,7 @@ const he = {
   noUpcoming: 'אין הפקדות קבועות',
 
   // Privacy
-  dataPrivacy: 'כל הנתונים נשמרים מקומית על המכשיר שלכם בלבד',
+  dataPrivacy: 'הנתונים שלכם נשמרים באופן מאובטח בחשבון ה-Supabase האישי שלכם',
 
   // Feature descriptions (empty state)
   livePrices: 'מחירים חיים',
@@ -621,7 +621,7 @@ const en: T = {
   totalDeposit: 'Total deposit',
   noUpcoming: 'No recurring contributions',
 
-  dataPrivacy: 'All data is stored locally on your device only',
+  dataPrivacy: 'Your data is stored securely in your own Supabase account',
 
   livePrices: 'Live Prices',
   livepricesSub: 'Real-time market data',

@@ -60,7 +60,7 @@ The way TIKI handles live market data follows a strict, deliberate separation be
 - `useLivePrices` (or its architectural successor) remains a **display-layer** concern only.
 - Live prices overlay stored portfolio data **at render time** — they are never persisted automatically.
 - Live prices must **never automatically write back to Supabase**.
-- Supabase remains the source of truth for all *owned* data: symbol, quantity, average buy price, frequency, and overall user portfolio state.
+- Supabase remains the source of truth for all *owned* data: symbol, quantity, average buy price, and overall user portfolio state.
 
 This separation keeps the displayed numbers current and trustworthy while keeping the stored data (what the user actually owns and paid) stable and explicit: it changes only through deliberate user action, never as a side effect of a price refresh.
 

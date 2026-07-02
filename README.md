@@ -71,7 +71,7 @@ minor version, and fixes bump the patch version.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/TIKI.git
+git clone https://github.com/MartinGu04/TIKI.git
 cd TIKI
 
 # 2. Install dependencies

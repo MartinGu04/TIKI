@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { searchYahoo, getQuote, getHistoricalClose, getChartRange, getHistoricalDiagnostics, type ChartRange } from './api/lib/yahoo'
+import { searchYahoo, getQuote, getHistoricalClose, getChartRange, type ChartRange } from './api/lib/yahoo'
 
 const VALID_CHART_RANGES: ChartRange[] = ['1w', '1mo', '3mo', '1y']
 
@@ -45,18 +45,6 @@ function marketDataDevMiddleware(): Plugin {
             }
             const points = await getChartRange(symbol, range);
             res.end(JSON.stringify({ points }));
-            return;
-          }
-          if (action === 'diagnose') {
-            const symbol = url.searchParams.get('symbol') ?? '';
-            const date = url.searchParams.get('date') ?? '';
-            if (!symbol || !date) {
-              res.statusCode = 400;
-              res.end(JSON.stringify({ error: 'symbol and date are required' }));
-              return;
-            }
-            const diagnostics = await getHistoricalDiagnostics(symbol, date);
-            res.end(JSON.stringify(diagnostics));
             return;
           }
           res.statusCode = 400;
