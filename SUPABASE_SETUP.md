@@ -176,15 +176,55 @@ create policy "update own portfolios" on public.portfolios for update using (aut
 create policy "delete own portfolios" on public.portfolios for delete using (auth.uid() = user_id);
 
 -- holdings
+-- insert/update also verify portfolio_id belongs to the caller, not just user_id,
+-- so a row can't be planted against another user's portfolio.
 create policy "select own holdings" on public.holdings for select using (auth.uid() = user_id);
-create policy "insert own holdings" on public.holdings for insert with check (auth.uid() = user_id);
-create policy "update own holdings" on public.holdings for update using (auth.uid() = user_id);
+create policy "insert own holdings" on public.holdings for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.portfolios p
+      where p.id = holdings.portfolio_id
+        and p.user_id = auth.uid()
+    )
+  );
+create policy "update own holdings" on public.holdings for update
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.portfolios p
+      where p.id = holdings.portfolio_id
+        and p.user_id = auth.uid()
+    )
+  );
 create policy "delete own holdings" on public.holdings for delete using (auth.uid() = user_id);
 
 -- transactions
+-- insert/update also verify holding_id belongs to the caller and that the
+-- holding's own portfolio_id matches the transaction's portfolio_id.
 create policy "select own transactions" on public.transactions for select using (auth.uid() = user_id);
-create policy "insert own transactions" on public.transactions for insert with check (auth.uid() = user_id);
-create policy "update own transactions" on public.transactions for update using (auth.uid() = user_id);
+create policy "insert own transactions" on public.transactions for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.holdings h
+      where h.id = transactions.holding_id
+        and h.user_id = auth.uid()
+        and h.portfolio_id = transactions.portfolio_id
+    )
+  );
+create policy "update own transactions" on public.transactions for update
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.holdings h
+      where h.id = transactions.holding_id
+        and h.user_id = auth.uid()
+        and h.portfolio_id = transactions.portfolio_id
+    )
+  );
 create policy "delete own transactions" on public.transactions for delete using (auth.uid() = user_id);
 
 -- app_settings
