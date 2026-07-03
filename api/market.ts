@@ -6,6 +6,7 @@
 // NodeNext-style convention maps this .js specifier back to yahoo.ts for
 // type-checking while leaving it as .js in the emitted JS.
 import { searchYahoo, getQuote, getHistoricalClose, getChartRange, type ChartRange } from './lib/yahoo.js';
+import { validateQuery, validateSymbol } from './lib/validate.js';
 
 const VALID_CHART_RANGES: ChartRange[] = ['1w', '1mo', '3mo', '1y'];
 
@@ -41,34 +42,35 @@ export default async function handler(req: Req, res: Res) {
     const action = param(req, 'action');
 
     if (action === 'search') {
-      const q = param(req, 'q');
-      const results = q.trim() ? await searchYahoo(q) : [];
+      const q = validateQuery(param(req, 'q'));
+      if (!q) { res.status(400).json({ error: 'invalid request' }); return; }
+      const results = await searchYahoo(q);
       res.status(200).json({ results });
       return;
     }
 
     if (action === 'quote') {
-      const symbol = param(req, 'symbol');
-      if (!symbol) { res.status(400).json({ error: 'symbol is required' }); return; }
+      const symbol = validateSymbol(param(req, 'symbol'));
+      if (!symbol) { res.status(400).json({ error: 'invalid request' }); return; }
       const data = await getQuote(symbol);
       res.status(200).json(data);
       return;
     }
 
     if (action === 'history') {
-      const symbol = param(req, 'symbol');
+      const symbol = validateSymbol(param(req, 'symbol'));
       const date = param(req, 'date');
-      if (!symbol || !date) { res.status(400).json({ error: 'symbol and date are required' }); return; }
+      if (!symbol || !date) { res.status(400).json({ error: 'invalid request' }); return; }
       const price = await getHistoricalClose(symbol, date);
       res.status(200).json({ price });
       return;
     }
 
     if (action === 'chart') {
-      const symbol = param(req, 'symbol');
+      const symbol = validateSymbol(param(req, 'symbol'));
       const range = param(req, 'range') as ChartRange;
       if (!symbol || !VALID_CHART_RANGES.includes(range)) {
-        res.status(400).json({ error: 'symbol and a valid range (1w, 1mo, 3mo, 1y) are required' });
+        res.status(400).json({ error: 'invalid request' });
         return;
       }
       const points = await getChartRange(symbol, range);
