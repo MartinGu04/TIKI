@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { TrendingUp } from 'lucide-react';
 import { useLang } from '../contexts/LanguageContext';
-import type { View } from '../types/view';
 
 interface Props {
-  onViewChange: (v: View) => void;
   userLabel?: string;
   userEmail?: string;
   userAvatarUrl?: string;
@@ -66,7 +65,8 @@ function CompactClock() {
  * Minimal Header per product decision: branding + clock + avatar only.
  * Theme, Language, and Sign Out all live in Settings now — not here.
  */
-export function Header({ onViewChange, userLabel, userEmail, userAvatarUrl }: Props) {
+export function Header({ userLabel, userEmail, userAvatarUrl }: Props) {
+  const navigate = useNavigate();
   const initial = userLabel?.[0]?.toUpperCase() ?? '';
 
   return (
@@ -80,7 +80,7 @@ export function Header({ onViewChange, userLabel, userEmail, userAvatarUrl }: Pr
         <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
           <div
             className="flex items-center gap-2.5 min-w-0 shrink-0 cursor-pointer"
-            onClick={() => onViewChange('home')}
+            onClick={() => navigate('/')}
           >
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0"
@@ -103,7 +103,7 @@ export function Header({ onViewChange, userLabel, userEmail, userAvatarUrl }: Pr
               className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0 overflow-hidden"
               style={{ background: 'var(--a)' }}
               title={userEmail ?? userLabel}
-              onClick={() => onViewChange('settings')}
+              onClick={() => navigate('/settings')}
               role="button"
             >
               {userAvatarUrl ? (

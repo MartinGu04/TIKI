@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useT } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -30,8 +31,6 @@ import { ErrorBanner } from './components/ui/ErrorBanner';
 import { ReminderBanner } from './components/ui/ReminderBanner';
 import { SkeletonCard } from './components/ui/Skeleton';
 
-import type { View } from './types/view';
-
 type ModalState =
   | { kind: 'transaction'; mode: 'add' | 'edit'; transaction?: Transaction; preselectedHolding?: Holding; initialType?: TransactionType }
   | { kind: 'importExport' }
@@ -59,7 +58,6 @@ function TikiApp({ userId }: { userId: string }) {
   const { user, signOut } = useAuth();
   const t = useT();
   const { showToast } = useToast();
-  const [view, setView] = useLocalStorage<View>('tiki-view', 'home');
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -315,7 +313,7 @@ function TikiApp({ userId }: { userId: string }) {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--t1)' }}>
-      <Header onViewChange={setView} userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl} />
+      <Header userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl} />
 
       {cloudError && (
         <div className="px-4 py-2">
@@ -324,43 +322,46 @@ function TikiApp({ userId }: { userId: string }) {
       )}
 
       <main>
-        {view === 'home' && (
-          <HomePage
-            holdings={displayHoldings} transactions={transactions} stats={stats}
-            onAddTransaction={() => openAddTransaction()} onQuickSell={(h) => openAddTransaction(h, 'sell')} userLabel={userLabel}
-            dailyChange={dailyChange} pricesStale={pricesStale} livePrices={livePrices}
-            reminderBanner={reminderBanner}
-          />
-        )}
-        {view === 'portfolio' && (
-          <PortfolioPage
-            holdings={displayHoldings} transactions={transactions} stats={stats}
-            onAddTransaction={openAddTransaction} onDeleteHolding={handleDeleteHolding}
-            onQuickSell={(h) => openAddTransaction(h, 'sell')}
-            livePrices={livePrices}
-            pricesLastUpdated={pricesLastUpdated} pricesRefreshing={pricesRefreshing} onRefreshPrices={refreshPrices}
-          />
-        )}
-        {view === 'history' && (
-          <HistoryPage
-            transactions={transactions} holdings={derivedHoldings}
-            onEditTransaction={openEditTransaction} onDeleteTransaction={handleDeleteTransaction}
-            onAddTransaction={() => openAddTransaction()} onAddDividend={() => openAddDividend()}
-          />
-        )}
-        {view === 'settings' && (
-          <SettingsPage
-            userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl}
-            onSignOut={signOut} primaryMarket={primaryMarket}
-            dividendReminder={settings.dividendReminder} monthlyReminder={settings.monthlyReminder}
-            monthlyReminderDay={settings.monthlyReminderDay} onUpdateNotifications={handleUpdateNotifications}
-            onOpenImportExport={() => setModal({ kind: 'importExport' })}
-            version="1.0.0"
-          />
-        )}
+        <Routes>
+          <Route path="/" element={
+            <HomePage
+              holdings={displayHoldings} transactions={transactions} stats={stats}
+              onAddTransaction={() => openAddTransaction()} onQuickSell={(h) => openAddTransaction(h, 'sell')} userLabel={userLabel}
+              dailyChange={dailyChange} pricesStale={pricesStale} livePrices={livePrices}
+              reminderBanner={reminderBanner}
+            />
+          } />
+          <Route path="/portfolio" element={
+            <PortfolioPage
+              holdings={displayHoldings} transactions={transactions} stats={stats}
+              onAddTransaction={openAddTransaction} onDeleteHolding={handleDeleteHolding}
+              onQuickSell={(h) => openAddTransaction(h, 'sell')}
+              livePrices={livePrices}
+              pricesLastUpdated={pricesLastUpdated} pricesRefreshing={pricesRefreshing} onRefreshPrices={refreshPrices}
+            />
+          } />
+          <Route path="/history" element={
+            <HistoryPage
+              transactions={transactions} holdings={derivedHoldings}
+              onEditTransaction={openEditTransaction} onDeleteTransaction={handleDeleteTransaction}
+              onAddTransaction={() => openAddTransaction()} onAddDividend={() => openAddDividend()}
+            />
+          } />
+          <Route path="/settings" element={
+            <SettingsPage
+              userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl}
+              onSignOut={signOut} primaryMarket={primaryMarket}
+              dividendReminder={settings.dividendReminder} monthlyReminder={settings.monthlyReminder}
+              monthlyReminderDay={settings.monthlyReminderDay} onUpdateNotifications={handleUpdateNotifications}
+              onOpenImportExport={() => setModal({ kind: 'importExport' })}
+              version="1.0.0"
+            />
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
-      <BottomNav view={view} onViewChange={setView} onAddTransaction={() => openAddTransaction()} />
+      <BottomNav onAddTransaction={() => openAddTransaction()} />
 
       {modal?.kind === 'transaction' && (
         <TransactionModal
@@ -420,7 +421,9 @@ export default function App() {
       <LanguageProvider>
         <AuthProvider>
           <ToastProvider>
-            <AuthGate />
+            <BrowserRouter>
+              <AuthGate />
+            </BrowserRouter>
           </ToastProvider>
         </AuthProvider>
       </LanguageProvider>
