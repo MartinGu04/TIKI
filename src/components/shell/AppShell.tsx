@@ -20,7 +20,7 @@ export function AppShell({ userLabel, userEmail, userAvatarUrl, children }: Prop
   return (
     <>
       <DesktopRail userLabel={userLabel} userEmail={userEmail} userAvatarUrl={userAvatarUrl} />
-      <div className="lg:ps-20">
+      <div className="lg:ps-[var(--shell-rail-width)]">
         <ContextualHeader userLabel={userLabel} userEmail={userEmail} userAvatarUrl={userAvatarUrl} />
         <main>{children}</main>
       </div>

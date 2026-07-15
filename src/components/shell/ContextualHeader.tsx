@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useT, useLang } from '../../contexts/LanguageContext';
+import { getDestinationByRoute } from '../../navigation/config';
 
 interface Props {
   userLabel?: string;
@@ -60,28 +61,31 @@ function CompactClock() {
   );
 }
 
-function useDestinationTitleId(pathname: string): 'home' | 'portfolio' | null {
-  if (pathname === '/') return 'home';
-  if (pathname === '/portfolio') return 'portfolio';
-  return null;
-}
-
 /**
- * Shell-level contextual header: carries the current primary destination's
- * title (Home/Portfolio only, per PART 5 §I's smallest slice) and, on
- * Portfolio, its secondary link to History. On phone/narrow-tablet widths
- * it also carries the clock and the avatar entry point to Settings — on
- * desktop those two move to the rail (avatar) or are dropped (clock; the
- * rail is icon-only and ambient time is available elsewhere on that form
- * factor). History/Settings keep their own existing page titles — this
- * header does not duplicate them.
+ * Shell-level contextual header: carries the current destination's title,
+ * resolved against the single navigation registry (`navigation/config.ts`)
+ * rather than a hand-listed pathname check — so History/Settings resolve
+ * consistently with Home/Portfolio, and any future registry addition (e.g.
+ * Monitoring, Decisions) resolves automatically with no further edit here.
+ * Only primary destinations actually display a title in this slice (Home,
+ * Portfolio) — History/Settings already render their own page title, so
+ * showing one here too would duplicate it; that's a display choice, not a
+ * limitation of the lookup itself. An unmatched route resolves to no title,
+ * never a silent fallback to Home.
+ *
+ * On Portfolio the header also carries its secondary link to History. On
+ * phone/narrow-tablet widths it also carries the clock and the avatar entry
+ * point to Settings — on desktop those two move to the rail (avatar) or are
+ * dropped (clock; the rail is icon-only and ambient time is available
+ * elsewhere on that form factor).
  */
 export function ContextualHeader({ userLabel, userEmail, userAvatarUrl }: Props) {
   const t = useT();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const titleId = useDestinationTitleId(pathname);
-  const title = titleId === 'home' ? t.home : titleId === 'portfolio' ? t.portfolio : null;
+  const destination = getDestinationByRoute(pathname);
+  const isPrimary = destination?.placement === 'primary';
+  const title = isPrimary && destination ? t[destination.id] : null;
   const initial = userLabel?.[0]?.toUpperCase() ?? '';
 
   return (
@@ -95,7 +99,7 @@ export function ContextualHeader({ userLabel, userEmail, userAvatarUrl }: Props)
           {title && (
             <p className="text-sm font-bold truncate" style={{ color: 'var(--t1)' }}>{title}</p>
           )}
-          {titleId === 'portfolio' && (
+          {destination?.id === 'portfolio' && (
             <button
               onClick={() => navigate('/history')}
               className="text-xs font-semibold transition-opacity hover:opacity-70"
@@ -114,15 +118,19 @@ export function ContextualHeader({ userLabel, userEmail, userAvatarUrl }: Props)
           {userLabel && (
             <button
               onClick={() => navigate('/settings')}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0 overflow-hidden"
-              style={{ background: 'var(--a)' }}
+              className="w-11 h-11 flex items-center justify-center shrink-0"
               title={userEmail ?? userLabel}
             >
-              {userAvatarUrl ? (
-                <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-              ) : (
-                initial
-              )}
+              <span
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white overflow-hidden"
+                style={{ background: 'var(--a)' }}
+              >
+                {userAvatarUrl ? (
+                  <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                ) : (
+                  initial
+                )}
+              </span>
             </button>
           )}
         </div>

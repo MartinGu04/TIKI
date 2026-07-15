@@ -22,7 +22,7 @@ export function DesktopRail({ userLabel, userEmail, userAvatarUrl }: Props) {
 
   return (
     <nav
-      className="hidden lg:flex fixed inset-y-0 start-0 z-40 w-20 flex-col items-center py-6 border-e"
+      className="hidden lg:flex fixed inset-y-0 start-0 z-40 w-[var(--shell-rail-width)] flex-col items-center py-6 border-e"
       style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
     >
       <div
@@ -53,15 +53,19 @@ export function DesktopRail({ userLabel, userEmail, userAvatarUrl }: Props) {
       {userLabel && (
         <button
           onClick={() => navigate('/settings')}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0 overflow-hidden"
-          style={{ background: 'var(--a)' }}
+          className="w-11 h-11 flex items-center justify-center shrink-0"
           title={userEmail ?? userLabel}
         >
-          {userAvatarUrl ? (
-            <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-          ) : (
-            initial
-          )}
+          <span
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white overflow-hidden"
+            style={{ background: 'var(--a)' }}
+          >
+            {userAvatarUrl ? (
+              <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+            ) : (
+              initial
+            )}
+          </span>
         </button>
       )}
     </nav>

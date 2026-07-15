@@ -4,8 +4,11 @@ import { useT } from '../../contexts/LanguageContext';
 
 /**
  * Bottom navigation — phone and narrow/portrait tablet only (below `lg:`).
- * Lists only today's real primary destinations (Home, Portfolio). It is
- * deliberately not padded to look like a full 4-item bar, and carries no
+ * Lists only today's real primary destinations (Home, Portfolio). Item
+ * spacing was verified (via a temporary, discarded local harness) to also
+ * structurally accommodate 4 destinations without overflow/clipping — see
+ * PART 5 hardening pass notes — so this doesn't need revisiting purely for
+ * item count when Monitoring/Decisions are added later. It carries no
  * floating add-transaction FAB — that action is Portfolio's own contextual
  * affordance now, not shell-wide chrome (PART 5 §A/§A.2).
  */
@@ -23,7 +26,7 @@ export function PhoneNav() {
             key={id}
             to={route}
             end={route === '/'}
-            className="flex flex-col items-center gap-1 px-8 py-1.5 rounded-xl transition-all"
+            className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all"
             style={({ isActive }) => ({ color: isActive ? 'var(--a)' : 'var(--t3)' })}
           >
             <Icon size={20} />
