@@ -72,7 +72,7 @@ export function SettingsPage({
   const themeLabel = theme === 'dark' ? t.themeDark : theme === 'light' ? t.themeLight : t.themeMamish;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-28 sm:pb-16 space-y-5 animate-fade-in">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-28 lg:pb-16 space-y-5 animate-fade-in">
       <h1 className="text-xl font-bold" style={{ color: 'var(--t1)' }}>{t.settings}</h1>
 
       <Section title={t.settingsAccount}>

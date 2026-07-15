@@ -58,7 +58,7 @@ export function HomePage({ holdings, transactions, stats, onAddTransaction, onQu
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-28 sm:pb-10 space-y-4">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-28 lg:pb-10 space-y-4">
 
       <div className="animate-slide-up" style={{ animationDelay: '0ms' }}>
         <p className="text-2xl font-bold" style={{ color: 'var(--t1)' }}>

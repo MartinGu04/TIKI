@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { TrendingUp } from 'lucide-react';
-import { useLang } from '../contexts/LanguageContext';
+import { useNavigate, useLocation } from 'react-router';
+import { useT, useLang } from '../../contexts/LanguageContext';
 
 interface Props {
   userLabel?: string;
@@ -61,12 +60,28 @@ function CompactClock() {
   );
 }
 
+function useDestinationTitleId(pathname: string): 'home' | 'portfolio' | null {
+  if (pathname === '/') return 'home';
+  if (pathname === '/portfolio') return 'portfolio';
+  return null;
+}
+
 /**
- * Minimal Header per product decision: branding + clock + avatar only.
- * Theme, Language, and Sign Out all live in Settings now — not here.
+ * Shell-level contextual header: carries the current primary destination's
+ * title (Home/Portfolio only, per PART 5 §I's smallest slice) and, on
+ * Portfolio, its secondary link to History. On phone/narrow-tablet widths
+ * it also carries the clock and the avatar entry point to Settings — on
+ * desktop those two move to the rail (avatar) or are dropped (clock; the
+ * rail is icon-only and ambient time is available elsewhere on that form
+ * factor). History/Settings keep their own existing page titles — this
+ * header does not duplicate them.
  */
-export function Header({ userLabel, userEmail, userAvatarUrl }: Props) {
+export function ContextualHeader({ userLabel, userEmail, userAvatarUrl }: Props) {
+  const t = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const titleId = useDestinationTitleId(pathname);
+  const title = titleId === 'home' ? t.home : titleId === 'portfolio' ? t.portfolio : null;
   const initial = userLabel?.[0]?.toUpperCase() ?? '';
 
   return (
@@ -75,43 +90,40 @@ export function Header({ userLabel, userEmail, userAvatarUrl }: Props) {
       style={{ background: 'var(--hdr)', borderColor: 'var(--border)' }}
     >
       <div style={{ paddingTop: 'env(safe-area-inset-top)' }} />
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-14 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-
-        <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
-          <div
-            className="flex items-center gap-2.5 min-w-0 shrink-0 cursor-pointer"
-            onClick={() => navigate('/')}
-          >
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0"
-              style={{ background: 'var(--a)', boxShadow: '0 4px 12px var(--a20)' }}
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {title && (
+            <p className="text-sm font-bold truncate" style={{ color: 'var(--t1)' }}>{title}</p>
+          )}
+          {titleId === 'portfolio' && (
+            <button
+              onClick={() => navigate('/history')}
+              className="text-xs font-semibold transition-opacity hover:opacity-70"
+              style={{ color: 'var(--t3)' }}
             >
-              <TrendingUp size={15} className="text-white" strokeWidth={2.5} />
-            </div>
-            <p className="text-sm font-black tracking-tight text-gradient hidden sm:block shrink-0" dir="ltr">TIKI</p>
+              {t.history}
+            </button>
+          )}
+        </div>
+
+        <div className="lg:hidden flex items-center gap-3 shrink-0">
+          <div className="flex items-center">
+            <CompactClock />
+            <LiveClock />
           </div>
-        </div>
-
-        <div className="flex items-center justify-center">
-          <CompactClock />
-          <LiveClock />
-        </div>
-
-        <div className="flex items-center gap-2 justify-self-end">
           {userLabel && (
-            <div
+            <button
+              onClick={() => navigate('/settings')}
               className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0 overflow-hidden"
               style={{ background: 'var(--a)' }}
               title={userEmail ?? userLabel}
-              onClick={() => navigate('/settings')}
-              role="button"
             >
               {userAvatarUrl ? (
                 <img src={userAvatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               ) : (
                 initial
               )}
-            </div>
+            </button>
           )}
         </div>
       </div>

@@ -4,8 +4,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useT } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
-import { Header } from './components/Header';
-import { BottomNav } from './components/BottomNav';
+import { AppShell } from './components/shell/AppShell';
 import { TransactionModal, TransactionSaveResult, SaveOutcome } from './components/TransactionModal';
 import { ImportExportSheet } from './components/ImportExportSheet';
 import { LoginScreen } from './components/LoginScreen';
@@ -313,15 +312,13 @@ function TikiApp({ userId }: { userId: string }) {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--t1)' }}>
-      <Header userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl} />
+      <AppShell userLabel={userLabel} userEmail={user?.email} userAvatarUrl={userAvatarUrl}>
+        {cloudError && (
+          <div className="px-4 py-2">
+            <ErrorBanner message={t.cloudUnavailable} retryLabel={t.tryAgain} onRetry={() => setCloudError(false)} />
+          </div>
+        )}
 
-      {cloudError && (
-        <div className="px-4 py-2">
-          <ErrorBanner message={t.cloudUnavailable} retryLabel={t.tryAgain} onRetry={() => setCloudError(false)} />
-        </div>
-      )}
-
-      <main>
         <Routes>
           <Route path="/" element={
             <HomePage
@@ -359,9 +356,7 @@ function TikiApp({ userId }: { userId: string }) {
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </main>
-
-      <BottomNav onAddTransaction={() => openAddTransaction()} />
+      </AppShell>
 
       {modal?.kind === 'transaction' && (
         <TransactionModal
