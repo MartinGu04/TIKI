@@ -31,7 +31,7 @@ export function PortfolioPage({
 
   if (holdings.length === 0) {
     return (
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-6 pb-28 sm:pb-16">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-6 pb-28 lg:pb-16">
         <EmptyState
           variant="inline"
           icon={<Search size={22} style={{ color: 'var(--at)' }} />}
@@ -49,7 +49,7 @@ export function PortfolioPage({
     : holdings;
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-6 pb-28 sm:pb-16 space-y-5 animate-fade-in">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-6 pb-28 lg:pb-16 space-y-5 animate-fade-in">
       <OverviewCards stats={stats} holdings={holdings} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

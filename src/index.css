@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── LAYOUT TOKENS (theme-independent) ───────────────────────────────────────
+   Not a final visual decision — the current value is a placeholder carried
+   over from the shell's first implementation slice (PART 5). Both the rail's
+   own width and the content area's offset for it must resolve through this
+   one property so they cannot drift out of sync. */
+:root {
+  --shell-rail-width: 5rem; /* 80px */
+}
+
 /* ── DARK THEME (default) ─────────────────────────────────────────────────── */
 :root {
   --bg:         #06060f;
