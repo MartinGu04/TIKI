@@ -83,6 +83,18 @@ const he = {
   sincePurchaseHint: 'ממוצע משוקלל של כל הרכישות',
   dailyChangeLabel: 'שינוי יומי',
   pricesStaleNote: 'חלק מהמחירים לא התעדכנו כרגע — מוצג הערך האחרון הידוע.',
+
+  // Living Overview — Now (V1)
+  homeNowPositiveToday: (amount: string, pct: string) => `התיק עלה היום ב-${amount} (${pct}).`,
+  homeNowPositiveOverall: (amount: string, pct: string) => `מאז שהתחלנו, התיק עלה ב-${amount} (${pct}).`,
+  homeNowNegativeToday: (amount: string, pct: string) => `התיק ירד היום ב-${amount} (${pct}).`,
+  homeNowNegativeOverall: (amount: string, pct: string) => `מאז שהתחלנו, התיק ירד ב-${amount} (${pct}).`,
+  homeNowNeutral: (value: string) => `התיק יציב. שווי נוכחי: ${value}.`,
+  homeNowMixedCurrencyIntro: 'התיק כולל כמה מטבעות. הנה השווי לפי מטבע:',
+  homeNowStale: 'לא הצלחנו לעדכן חלק מהמחירים כרגע. השווי המוצג עשוי לא לשקף את הרגע הזה.',
+  homeRefreshPrices: 'לעדכן את השווי',
+  homeNowNoPortfolio: 'עדיין אין השקעות בתיק. אפשר להתחיל כשנוח.',
+
   nextDeposit: 'הפקדה הבאה',
   ourInvestments: 'ההשקעות שלנו',
   noRecurring: 'אין הפקדות קבועות',
@@ -333,13 +345,6 @@ const he = {
   // Mamish
   mamishActivated: '✨ מאמיש מוד',
   mamishDeactivated: 'חזרה למצב רגיל',
-
-  // Personality sentences (one per portfolio state)
-  personalityGain: '📈 חודש מצוין.',
-  personalityGrowing: '💰 התיק שלכם ממשיך לצמוח.',
-  personalityBuilding: '🌱 אתם בונים משהו לעתיד.',
-  personalityDown: '📉 השוק ירד היום — אבל אתם עדיין בדרך הנכונה.',
-  personalityStart: '✨ כל השקעה מגדילה אתכם.',
 };
 
 type T = typeof he;
@@ -419,6 +424,17 @@ const en: T = {
   sincePurchaseHint: 'Weighted average across all purchases',
   dailyChangeLabel: 'Daily change',
   pricesStaleNote: "Some prices couldn't refresh right now — showing the last known value.",
+
+  // Living Overview — Now (V1)
+  homeNowPositiveToday: (amount: string, pct: string) => `The portfolio is up ${amount} (${pct}) today.`,
+  homeNowPositiveOverall: (amount: string, pct: string) => `Since we started, the portfolio is up ${amount} (${pct}).`,
+  homeNowNegativeToday: (amount: string, pct: string) => `The portfolio is down ${amount} (${pct}) today.`,
+  homeNowNegativeOverall: (amount: string, pct: string) => `Since we started, the portfolio is down ${amount} (${pct}).`,
+  homeNowNeutral: (value: string) => `The portfolio is steady. Current value: ${value}.`,
+  homeNowMixedCurrencyIntro: "The portfolio spans a few currencies. Here's the value by currency:",
+  homeNowStale: "We couldn't refresh some prices just now. The value shown may not reflect this exact moment.",
+  homeRefreshPrices: 'Refresh value',
+  homeNowNoPortfolio: 'There are no investments in the portfolio yet. Start whenever it feels right.',
   nextDeposit: 'Next Deposit',
   ourInvestments: 'Our Investments',
   noRecurring: 'No recurring deposits',
@@ -653,12 +669,6 @@ const en: T = {
 
   mamishActivated: '✨ Mamish Mode',
   mamishDeactivated: 'Back to normal',
-
-  personalityGain: '📈 Great month.',
-  personalityGrowing: '💰 Your portfolio keeps growing.',
-  personalityBuilding: '🌱 You\'re building something for the future.',
-  personalityDown: '📉 The market is down today, but you\'re still on the right path.',
-  personalityStart: '✨ Every investment counts.',
 };
 
 export const translations: Record<Lang, T> = { he, en };

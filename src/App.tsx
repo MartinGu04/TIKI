@@ -27,7 +27,6 @@ import {
 } from './utils/reminders';
 import { ToastHost } from './components/ui/Toast';
 import { ErrorBanner } from './components/ui/ErrorBanner';
-import { ReminderBanner } from './components/ui/ReminderBanner';
 import { SkeletonCard } from './components/ui/Skeleton';
 
 type ModalState =
@@ -282,22 +281,14 @@ function TikiApp({ userId }: { userId: string }) {
   void reminderDismissTick;
   const monthlyReminderDue = shouldShowMonthlyReminder(settings.monthlyReminder, settings.monthlyReminderDay, transactions);
   const dividendReminderDue = shouldShowDividendReminder(settings.dividendReminder, transactions);
-
-  const reminderBanner = monthlyReminderDue ? (
-    <ReminderBanner
-      message={t.monthlyReminderBannerMsg}
-      actionLabel={t.logInvestmentBtn}
-      onAction={() => openAddTransaction()}
-      onDismiss={() => { dismissMonthlyReminder(); setReminderDismissTick((n) => n + 1); }}
-    />
-  ) : dividendReminderDue ? (
-    <ReminderBanner
-      message={t.dividendReminderBannerMsg}
-      actionLabel={t.addDividendBtn}
-      onAction={() => openAddDividend()}
-      onDismiss={() => { dismissDividendReminder(); setReminderDismissTick((n) => n + 1); }}
-    />
-  ) : undefined;
+  const handleDismissMonthlyReminder = useCallback(() => {
+    dismissMonthlyReminder();
+    setReminderDismissTick((n) => n + 1);
+  }, []);
+  const handleDismissDividendReminder = useCallback(() => {
+    dismissDividendReminder();
+    setReminderDismissTick((n) => n + 1);
+  }, []);
 
   if (cloudLoading) {
     return (
@@ -323,9 +314,14 @@ function TikiApp({ userId }: { userId: string }) {
           <Route path="/" element={
             <HomePage
               holdings={displayHoldings} transactions={transactions} stats={stats}
-              onAddTransaction={() => openAddTransaction()} onQuickSell={(h) => openAddTransaction(h, 'sell')} userLabel={userLabel}
-              dailyChange={dailyChange} pricesStale={pricesStale} livePrices={livePrices}
-              reminderBanner={reminderBanner}
+              onAddTransaction={() => openAddTransaction()} onAddDividend={() => openAddDividend()}
+              onQuickSell={(h) => openAddTransaction(h, 'sell')} userLabel={userLabel}
+              dailyChange={dailyChange} pricesStale={pricesStale}
+              pricesRefreshing={pricesRefreshing} onRefreshPrices={refreshPrices}
+              livePrices={livePrices}
+              monthlyReminderDue={monthlyReminderDue} dividendReminderDue={dividendReminderDue}
+              onDismissMonthlyReminder={handleDismissMonthlyReminder}
+              onDismissDividendReminder={handleDismissDividendReminder}
             />
           } />
           <Route path="/portfolio" element={
